@@ -4,6 +4,8 @@
 
 # MariaDB
 mariadb-10.6.28.tar.gz          13d9330f3120c739757b215a3220a9c9e2ddf3c3c1b8beff5cd43942868f3d72  https://archive.mariadb.org/mariadb-10.6.28/source/mariadb-10.6.28.tar.gz
+# OpenSSL 3.5 LTS, statique : serveur et connecteur client (avec WolfSSL, le connecteur basculerait sur GnuTLS)
+openssl-3.5.9.tar.gz            603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz
 
 # PHP et Xdebug
 php-7.4.33.tar.xz               924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927  https://www.php.net/distributions/php-7.4.33.tar.xz

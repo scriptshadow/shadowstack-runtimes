@@ -31,7 +31,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: travail/deps-php
-          key: deps-php-${{ hashFiles('php/dependances.sh', 'sources.txt', 'scripts/commun.sh') }}
+          # Les versions des dépendances figurent dans dependances.sh : sources.txt n'entre pas dans la clé
+          key: deps-php-${{ hashFiles('php/dependances.sh', 'scripts/commun.sh') }}
 
       - name: Dépendances (OpenSSL 1.1, ICU, libxml2…)
         if: steps.cache.outputs.cache-hit != 'true'

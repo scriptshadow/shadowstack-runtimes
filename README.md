@@ -11,7 +11,7 @@ Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un env
 
 Chaque paquet :
 
-- **ne dépend que du système** : dépendances compilées en statique (OpenSSL 1.1.1, ICU 72, libxml2, curl… pour PHP ; WolfSSL, PCRE2, zlib pour MariaDB). La compilation échoue si un binaire référence une bibliothèque hors de `/usr/lib` et `/System` ;
+- **ne dépend que du système** : dépendances compilées en statique (OpenSSL 1.1.1, ICU 72, libxml2, curl… pour PHP ; OpenSSL 3.5, PCRE2, zlib pour MariaDB). La compilation échoue si un binaire référence une bibliothèque hors de `/usr/lib` et `/System` ;
 - **fonctionne depuis n'importe quel dossier** : les tests tournent sur une copie déplacée ;
 - est accompagné de son empreinte SHA-256 (`.sha256`) ;
 - vise macOS 13 et plus.
@@ -38,7 +38,7 @@ Les paquets redistribuent des logiciels sous leurs propres licences :
 
 - PHP : PHP License 3.01 ; Xdebug : Xdebug License 1.03
 - MariaDB : GNU GPL v2 ; sources correspondantes : https://archive.mariadb.org/mariadb-10.6.28/source/
-- OpenSSL 1.1.1 : licence OpenSSL et SSLeay ; ICU : licence Unicode ; curl : licence curl ; libxml2, zlib, libpng, libjpeg-turbo, FreeType, libzip, Oniguruma, SQLite : licences libres respectives
+- OpenSSL 1.1.1 : licence OpenSSL et SSLeay ; OpenSSL 3.5 : Apache 2.0 ; ICU : licence Unicode ; curl : licence curl ; libxml2, zlib, libpng, libjpeg-turbo, FreeType, libzip, Oniguruma, SQLite : licences libres respectives
 
 Les scripts de ce dépôt servent à reproduire chaque paquet à l'identique à partir de ces sources.
 

@@ -38,4 +38,4 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./scripts/publier.sh mariadb-10.6.28 "MariaDB 10.6.28 pour macOS arm64 (WolfSSL, PCRE2 et zlib embarqués)"
+        run: ./scripts/publier.sh mariadb-10.6.28 "MariaDB 10.6.28 pour macOS arm64 (OpenSSL 3.5, PCRE2 et zlib embarqués)"

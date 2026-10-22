@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compile MariaDB pour macOS arm64 avec ses dépendances embarquées (WolfSSL, PCRE2, zlib),
+# Compile MariaDB pour macOS arm64 avec ses dépendances embarquées (OpenSSL 3.5 statique, PCRE2, zlib),
 # teste le paquet déplacé (initialisation, démarrage, requêtes, greffon, export), l'empaquette.
 #
 #   ./mariadb/construire.sh
@@ -8,7 +8,13 @@ source "$(dirname "$0")/../scripts/commun.sh"
 
 VERSION_MARIADB=10.6.28
 SRC="$TRAVAIL/src-mariadb"
+DEPS="$TRAVAIL/deps-mariadb"
 PREFIXE="$TRAVAIL/paquets/mariadb-$VERSION_MARIADB"
+
+# pkg-config limité aux dépendances compilées ici : sans cela, le connecteur client trouve le
+# GnuTLS de Homebrew et le paquet en dépendrait
+export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"
+unset PKG_CONFIG_PATH
 
 # MariaDB exige un bison plus récent que celui de macOS (2.3) : celui de Homebrew sert à la
 # compilation seulement, le paquet n'en dépend pas
@@ -23,8 +29,10 @@ options_cmake=(
   -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local"
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   -DCOMPILATION_COMMENT="ShadowStack"
-  # Dépendances embarquées : le paquet ne dépend que du système
-  -DWITH_SSL=bundled
+  # Dépendances embarquées : le paquet ne dépend que du système. OpenSSL plutôt que WolfSSL :
+  # avec WolfSSL, le connecteur client de la 10.6 exige GnuTLS (absent de macOS)
+  -DWITH_SSL="$DEPS"
+  -DOPENSSL_USE_STATIC_LIBS=TRUE
   -DWITH_PCRE=bundled
   -DWITH_ZLIB=bundled
   -DWITH_JEMALLOC=no
@@ -44,7 +52,8 @@ options_cmake=(
   -DPLUGIN_S3=NO
   -DPLUGIN_COLUMNSTORE=NO
   -DPLUGIN_AUTH_GSSAPI=NO
-  -DPLUGIN_AUTH_GSSAPI_CLIENT=NO
+  # Greffon du connecteur client : valeurs DYNAMIC, STATIC ou OFF (pas NO)
+  -DPLUGIN_AUTH_GSSAPI_CLIENT=OFF
   -DPLUGIN_AUTH_PAM=NO
   -DPLUGIN_AUTH_PAM_V1=NO
   -DPLUGIN_PROVIDER_BZIP2=NO
@@ -53,6 +62,14 @@ options_cmake=(
   -DPLUGIN_PROVIDER_LZO=NO
   -DPLUGIN_PROVIDER_SNAPPY=NO
 )
+
+etape "OpenSSL 3.5 (statique)"
+if [ ! -f "$DEPS/lib/libssl.a" ]; then
+  o=$(extraire openssl-3.5.9.tar.gz "$SRC")
+  # openssldir = magasin du système : les certificats racine de macOS servent par défaut
+  (cd "$o" && ./Configure darwin64-arm64-cc no-shared no-tests no-docs --prefix="$DEPS" --libdir=lib \
+    --openssldir=/private/etc/ssl && make -j"$COEURS" && make install_sw)
+fi
 
 etape "MariaDB $VERSION_MARIADB : configuration"
 d=$(extraire "mariadb-$VERSION_MARIADB.tar.gz" "$SRC")
