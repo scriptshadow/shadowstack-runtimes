@@ -148,6 +148,11 @@ cp -R "$INSTALLATION" "$PAQUET"
 # Fichiers inutiles à l'exécution (en-têtes, outils de compilation d'extensions, témoins)
 rm -rf "$PAQUET/php/man" "$PAQUET/php/php" "$PAQUET/lib/php/build" "$PAQUET/include" "$PAQUET"/.etape-*
 mkdir -p "$PAQUET/etc/conf.d"
+# php.ini livré (copie de php.ini-development, comme Homebrew) : sans lui, PHP garde ses valeurs
+# internes, dont variables_order = EGPCS, qui remplit $_ENV et casse des applications existantes
+# (STiSchools). ShadowStack le passe avec -c ; php.ini-production est fourni à côté.
+cp "$d/php.ini-development" "$d/php.ini-production" "$PAQUET/etc/"
+cp "$d/php.ini-development" "$PAQUET/etc/php.ini"
 retirer_rpaths_absolus "$PAQUET"
 
 etape "Dépendances des binaires"
@@ -195,6 +200,11 @@ tester_php() {
   version=$("$php" -n -d zend_extension="$ext/xdebug.so" -v)
   grep -q "with Xdebug v$VERSION_XDEBUG" <<<"$version" || echec "Xdebug ne se charge pas"
   echo "OPcache et Xdebug : chargés"
+
+  local ordre
+  ordre=$("$php" -c "$p/etc/php.ini" -r 'echo ini_get("variables_order");')
+  [ "$ordre" = "GPCS" ] || echec "php.ini livré non pris en compte (variables_order = $ordre)"
+  echo "php.ini livré : pris en compte (variables_order = GPCS)"
 
   "$p/sbin/php-fpm" -n -v | sed -n 1p
   "$p/bin/php-cgi" -n -v | sed -n 1p
