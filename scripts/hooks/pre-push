@@ -1,7 +1,8 @@
 #!/bin/sh
-# Refuse l'envoi si un fichier suivi est modifié sans être indexé (GIT.md §3) :
-# ci-local valide la copie de travail, alors que le commit emporte l'index.
-# Les fichiers non suivis ne bloquent pas.
+# Refuse l'envoi (GIT.md §1 et §3) :
+# - si un fichier suivi est modifié sans être indexé : ci-local valide la copie de travail,
+#   alors que le commit emporte l'index (les fichiers non suivis ne bloquent pas) ;
+# - si un commit envoyé contient un workflow GitHub Actions : aucune CI distante sans décision du PO.
 # Activé par : git config core.hooksPath scripts/hooks
 
 modifies=$(git diff --name-only)
@@ -11,3 +12,15 @@ if [ -n "$modifies" ]; then
   echo "  Les indexer et les committer, ou les mettre de côté (git stash), puis recommencer." >&2
   exit 1
 fi
+
+# Git transmet sur l'entrée standard : <réf locale> <sha local> <réf distante> <sha distant>
+zero=0000000000000000000000000000000000000000
+while read -r _ sha_local _ _; do
+  [ "$sha_local" = "$zero" ] && continue
+  workflows=$(git ls-tree -r --name-only "$sha_local" -- .github/workflows)
+  if [ -n "$workflows" ]; then
+    echo "✖ Envoi refusé : workflow GitHub Actions dans le commit envoyé (GIT.md §1, aucune CI distante)" >&2
+    printf '%s\n' "$workflows" | sed 's/^/  /' >&2
+    exit 1
+  fi
+done
