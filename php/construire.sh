@@ -23,9 +23,18 @@ unset PKG_CONFIG_PATH
 outils="$TRAVAIL/outils"
 mkdir -p "$outils"
 pkgconf_reel=$(command -v pkgconf || command -v pkg-config) || echec "pkg-config introuvable"
-printf '#!/bin/sh\nexec "%s" --static "$@"\n' "$pkgconf_reel" > "$outils/pkg-config-statique"
+# PHP_EVAL_LIBLINE (configure de PHP 7.4) découpe « -framework X » en deux mots et casse les tests
+# de liaison : le wrapper retire les frameworks, qui passent par LDFLAGS
+cat > "$outils/pkg-config-statique" <<SH
+#!/bin/sh
+sortie=\$("$pkgconf_reel" --static "\$@") || exit \$?
+printf '%s\\n' "\$sortie" | sed -E 's/-framework [A-Za-z]+//g'
+SH
 chmod +x "$outils/pkg-config-statique"
 export PKG_CONFIG="$outils/pkg-config-statique"
+frameworks=$("$pkgconf_reel" --static --libs libcurl libzip | grep -oE -- '-framework [A-Za-z]+' | sort -u | tr '\n' ' ')
+export LDFLAGS="$LDFLAGS $frameworks"
+echo "Frameworks passés par LDFLAGS : ${frameworks:-aucun}"
 # ICU est en C++ : bibliothèque standard C++ de macOS
 export LIBS="-lc++"
 export CPPFLAGS="-I$DEPS/include"
@@ -77,7 +86,11 @@ options_php=(
 etape "PHP $VERSION_PHP : configuration"
 d=$(extraire "php-$VERSION_PHP.tar.xz" "$SRC")
 rm -rf "$PREFIXE"
-(cd "$d" && ./configure "${options_php[@]}")
+if ! (cd "$d" && ./configure "${options_php[@]}"); then
+  echo "--- fin de config.log ---" >&2
+  tail -n 80 "$d/config.log" >&2
+  echec "Configuration de PHP en échec"
+fi
 
 etape "PHP $VERSION_PHP : compilation"
 (cd "$d" && make -j"$COEURS" && make install)
