@@ -25,6 +25,56 @@ echec() {
   exit 1
 }
 
+# --- ccache ------------------------------------------------------------------------------------
+# Liens cc, c++, clang et clang++ vers ccache, en tête du PATH (mode « masquerade ») : autoconf,
+# CMake, OpenSSL et ICU passent par ccache sans changer leurs options. Recompiler un fichier
+# identique devient quasi instantané. Sans ccache, la compilation se fait normalement.
+activer_ccache() {
+  local ccache dossier="$TRAVAIL/ccache-bin" nom
+  ccache=$(command -v ccache) || return 0
+  case ":$PATH:" in *":$dossier:"*) return 0 ;; esac
+  mkdir -p "$dossier"
+  for nom in cc c++ clang clang++; do
+    ln -sf "$ccache" "$dossier/$nom"
+  done
+  export PATH="$dossier:$PATH"
+  export CCACHE_DIR="$TRAVAIL/ccache"
+  export CCACHE_MAXSIZE=3G
+  # Chemins relatifs à travail/ : le cache sert même si le dépôt change de place
+  export CCACHE_BASEDIR="$TRAVAIL"
+}
+activer_ccache
+
+# --- Cache par étape ---------------------------------------------------------------------------
+# Une étape est sautée si son empreinte (archive source, recette, options, empreintes des étapes
+# dont elle dépend) n'a pas changé depuis sa dernière réussite. Le témoin est rangé à côté du
+# résultat : supprimer le résultat invalide l'étape. COMPLET=1 (ci-local.sh --complet) force tout.
+
+# empreinte <éléments…> : SHA-256 de ses arguments
+empreinte() {
+  printf '%s\n' "$@" | shasum -a 256 | awk '{print $1}'
+}
+
+# source_de <fichier> : ligne de sources.txt (URL et SHA-256 de l'archive), pour les empreintes
+source_de() {
+  grep -E "^$1[[:space:]]" "$RACINE/sources.txt" || echec "Source inconnue dans sources.txt : $1"
+}
+
+# etape_en_cache <témoin> <empreinte> <libellé> <commande> [arguments…]
+etape_en_cache() {
+  local temoin="$1" cle="$2" libelle="$3"
+  shift 3
+  etape "$libelle"
+  if [ "${COMPLET:-0}" != 1 ] && [ -f "$temoin" ] && [ "$(cat "$temoin")" = "$cle" ]; then
+    echo "Rien n'a changé : étape reprise du cache"
+    return 0
+  fi
+  rm -f "$temoin"
+  "$@"
+  mkdir -p "$(dirname "$temoin")"
+  printf '%s\n' "$cle" > "$temoin"
+}
+
 # telecharger <fichier> : télécharge l'archive listée dans sources.txt, vérifie son SHA-256,
 # et affiche son chemin local
 telecharger() {
@@ -52,9 +102,11 @@ extraire() {
   local archive dossier
   archive=$(telecharger "$1")
   mkdir -p "$2"
-  # sed lit toute la liste : pas de SIGPIPE sur tar (fatal avec pipefail), contrairement à head
-  dossier=$(tar -tf "$archive" | sed -n '1{s#^\./##;s#/.*##;p;}')
-  rm -rf "${2:?}/$dossier"
+  # Premier dossier de l'archive (les archives PECL commencent par un package.xml à la racine).
+  # awk lit toute la liste : pas de SIGPIPE sur tar (fatal avec pipefail), contrairement à head
+  dossier=$(tar -tf "$archive" | sed 's#^\./##' | awk -F/ 'NF > 1 && d == "" { d = $1 } END { print d }')
+  [ -n "$dossier" ] || echec "Aucun dossier dans l'archive $1"
+  rm -rf "${2:?}/${dossier:?}"
   tar -xf "$archive" -C "$2"
   printf '%s\n' "$2/$dossier"
 }
@@ -91,6 +143,27 @@ verifier_liens() {
   done < <(find "$dossier" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \))
   [ "$fautes" -eq 0 ] || echec "$fautes dépendance(s) hors système dans $dossier"
   echo "Liens vérifiés : $nb binaires, dépendances limitées au système"
+}
+
+# retirer_rpaths_absolus <dossier> : retire les LC_RPATH absolus que certains configure gravent
+# à partir des -L (dossier de compilation, SDK Xcode), puis re-signe en ad hoc : sur Apple Silicon,
+# un binaire modifié sans nouvelle signature refuse de se lancer
+retirer_rpaths_absolus() {
+  local dossier="$1" fichier rpath change modifies=0
+  while IFS= read -r fichier; do
+    [[ $(file -b "$fichier") == *Mach-O* ]] || continue
+    change=0
+    while IFS= read -r rpath; do
+      case "$rpath" in @*) continue ;; esac
+      install_name_tool -delete_rpath "$rpath" "$fichier"
+      change=1
+    done < <(otool -l "$fichier" | awk '/LC_RPATH/{getline; getline; print $2}')
+    if [ "$change" = 1 ]; then
+      codesign --force --sign - "$fichier"
+      modifies=$((modifies + 1))
+    fi
+  done < <(find "$dossier" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \))
+  echo "LC_RPATH absolus retirés : $modifies binaire(s), re-signés en ad hoc"
 }
 
 # empaqueter <dossier> : crée <nom>-<cible>.tar.gz et son .sha256 dans $SORTIE

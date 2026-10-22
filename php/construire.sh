@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Compile PHP 7.4 (CLI, FPM, CGI) et Xdebug pour macOS arm64, teste le paquet déplacé, l'empaquette.
 # Les dépendances doivent avoir été compilées par php/dependances.sh.
+# Étapes en cache (configuration, compilation, Xdebug) : seule une étape dont les entrées ont
+# changé est refaite ; le paquet (copie, nettoyage, vérifications, tests) est toujours refait.
 #
 #   ./php/construire.sh
 
@@ -10,10 +12,16 @@ VERSION_PHP=7.4.33
 VERSION_XDEBUG=3.1.6
 DEPS="${DEPS:-$TRAVAIL/deps-php}"
 SRC="$TRAVAIL/src-php"
-PREFIXE="$TRAVAIL/paquets/php-$VERSION_PHP"
+# Installation de compilation (gardée pour la reprise) et paquet (copie nettoyée de l'installation)
+INSTALLATION="$TRAVAIL/installation/php-$VERSION_PHP"
+PAQUET="$TRAVAIL/paquets/php-$VERSION_PHP"
 SDK="$(xcrun --show-sdk-path)"
 
-[ -f "$DEPS/lib/libssl.a" ] || echec "Dépendances absentes : lancer d'abord ./php/dependances.sh"
+[ -d "$DEPS/.etapes" ] || echec "Dépendances absentes : lancer d'abord ./php/dependances.sh"
+# Installation restée écartée par des tests interrompus : remise en place (évite une recompilation)
+if [ -d "$INSTALLATION.ecartee" ] && [ ! -e "$INSTALLATION" ]; then
+  mv "$INSTALLATION.ecartee" "$INSTALLATION"
+fi
 
 export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"
 unset PKG_CONFIG_PATH
@@ -37,7 +45,6 @@ libs_statiques=$("$pkgconf_reel" --static --libs libcurl libzip) || echec "pkg-c
 libs_statiques="$libs_statiques $("$DEPS/bin/curl-config" --static-libs)"
 # awk plutôt que grep -o : aucun framework n'est pas une erreur
 frameworks=$(printf '%s\n' "$libs_statiques" | tr ' ' '\n' | awk '$0 == "-framework" { getline; print "-framework " $0 }' | sort -u | tr '\n' ' ')
-echo "Bibliothèques statiques (curl, libzip) : $libs_statiques"
 echo "Frameworks passés par LDFLAGS : ${frameworks:-aucun}"
 # ICU est en C++ : bibliothèque standard C++ de macOS
 export LIBS="-lc++"
@@ -47,14 +54,18 @@ export LDFLAGS="-L$DEPS/lib $frameworks"
 # U_DEFINE_FALSE_AND_TRUE : ICU ≥ 68 ne définit plus TRUE/FALSE, employés par ext/intl
 export CFLAGS="-O2 -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-function-pointer-types"
 export CXXFLAGS="-O2 -DU_DEFINE_FALSE_AND_TRUE=1"
+# Pas de -fvisibility=hidden : avec l'éditeur de liens récent d'Apple, main() devient un symbole
+# caché, n'est plus retenu comme point d'entrée, et tout exécutable plante au lancement
+# (« Illegal instruction » : premier symptôme, le test de compilation de GD dans configure)
+export ax_cv_check_cflags___fvisibility_hidden=no
 # libedit du système (readline de la CLI) : macOS ne fournit pas de libedit.pc
 export EDIT_CFLAGS="-I$SDK/usr/include"
 export EDIT_LIBS="-ledit"
 
 options_php=(
-  --prefix="$PREFIXE"
-  --with-config-file-path="$PREFIXE/etc"
-  --with-config-file-scan-dir="$PREFIXE/etc/conf.d"
+  --prefix="$INSTALLATION"
+  --with-config-file-path="$INSTALLATION/etc"
+  --with-config-file-scan-dir="$INSTALLATION/etc/conf.d"
   --enable-fpm
   --enable-cgi
   --disable-phpdbg
@@ -90,30 +101,57 @@ options_php=(
   --enable-opcache
 )
 
-etape "PHP $VERSION_PHP : configuration"
-d=$(extraire "php-$VERSION_PHP.tar.xz" "$SRC")
-rm -rf "$PREFIXE"
-if ! (cd "$d" && ./configure "${options_php[@]}"); then
-  # Dernier test exécuté : juste avant la section « Cache variables » de config.log
-  echo "--- config.log : derniers tests ---" >&2
-  awk '/^## Cache variables\. ##/ { exit } { print }' "$d/config.log" | tail -n 60 >&2
-  echec "Configuration de PHP en échec"
-fi
+d="$SRC/php-$VERSION_PHP"
+x="$SRC/xdebug-$VERSION_XDEBUG"
 
-etape "PHP $VERSION_PHP : compilation"
-(cd "$d" && make -j"$COEURS" && make install)
+configurer_php() {
+  extraire "php-$VERSION_PHP.tar.xz" "$SRC" >/dev/null
+  if ! (cd "$d" && ./configure "${options_php[@]}"); then
+    # Dernier test exécuté : juste avant la section « Cache variables » de config.log
+    echo "--- config.log : derniers tests ---" >&2
+    awk '/^## Cache variables\. ##/ { exit } { print }' "$d/config.log" | tail -n 60 >&2
+    echec "Configuration de PHP en échec"
+  fi
+}
 
-etape "Xdebug $VERSION_XDEBUG"
-x=$(extraire "xdebug-$VERSION_XDEBUG.tgz" "$SRC")
-(cd "$x" && "$PREFIXE/bin/phpize" && ./configure --with-php-config="$PREFIXE/bin/php-config" --enable-xdebug \
-  && make -j"$COEURS" && make install)
+compiler_php() {
+  rm -rf "$INSTALLATION"
+  (cd "$d" && make -j"$COEURS" && make install)
+}
 
-# Fichiers inutiles à l'exécution
-rm -rf "$PREFIXE/php/man" "$PREFIXE/php/php" "$PREFIXE/lib/php/build" "$PREFIXE/include"
-mkdir -p "$PREFIXE/etc/conf.d"
+construire_xdebug() {
+  extraire "xdebug-$VERSION_XDEBUG.tgz" "$SRC" >/dev/null
+  # phpize s'appuie sur l'autoconf de Homebrew : depuis la 2.72, il ajoute -std=gnu23, où
+  # « void f(); » signifie « aucun argument » ; Xdebug 3.1, antérieur à C23, ne compile pas.
+  # -std=gnu17, placé après dans la ligne de commande, l'emporte.
+  (cd "$x" && "$INSTALLATION/bin/phpize" && CFLAGS="$CFLAGS -std=gnu17" ./configure \
+    --with-php-config="$INSTALLATION/bin/php-config" --enable-xdebug && make -j"$COEURS" && make install)
+}
+
+# Empreintes : chaque étape inclut celle de la précédente, et la configuration celle des dépendances
+cle_configuration=$(empreinte "$(source_de "php-$VERSION_PHP.tar.xz")" "$(declare -f configurer_php)" \
+  "${options_php[*]}" "$CFLAGS" "$CXXFLAGS" "$CPPFLAGS" "$LDFLAGS" "$LIBS" "$EDIT_CFLAGS" "$EDIT_LIBS" \
+  "$ax_cv_check_cflags___fvisibility_hidden" "$MACOSX_DEPLOYMENT_TARGET" "$(cat "$outils/pkg-config-statique")" \
+  "$(cat "$DEPS/.etapes"/*)")
+cle_compilation=$(empreinte "$cle_configuration" "$(declare -f compiler_php)")
+cle_xdebug=$(empreinte "$cle_compilation" "$(source_de "xdebug-$VERSION_XDEBUG.tgz")" "$(declare -f construire_xdebug)")
+
+# Témoins rangés avec leur résultat : une source ré-extraite ou une installation refaite les invalide
+etape_en_cache "$d/.etape-configuration" "$cle_configuration" "PHP $VERSION_PHP : configuration" configurer_php
+etape_en_cache "$INSTALLATION/.etape-compilation" "$cle_compilation" "PHP $VERSION_PHP : compilation" compiler_php
+etape_en_cache "$INSTALLATION/.etape-xdebug" "$cle_xdebug" "Xdebug $VERSION_XDEBUG" construire_xdebug
+
+etape "Paquet : copie nettoyée de l'installation"
+rm -rf "$PAQUET"
+mkdir -p "$(dirname "$PAQUET")"
+cp -R "$INSTALLATION" "$PAQUET"
+# Fichiers inutiles à l'exécution (en-têtes, outils de compilation d'extensions, témoins)
+rm -rf "$PAQUET/php/man" "$PAQUET/php/php" "$PAQUET/lib/php/build" "$PAQUET/include" "$PAQUET"/.etape-*
+mkdir -p "$PAQUET/etc/conf.d"
+retirer_rpaths_absolus "$PAQUET"
 
 etape "Dépendances des binaires"
-verifier_liens "$PREFIXE"
+verifier_liens "$PAQUET"
 
 # tester_php <dossier> : tests sur un paquet déplacé (aucun php.ini : tout est passé en -d)
 tester_php() {
@@ -162,15 +200,16 @@ tester_php() {
   "$p/bin/php-cgi" -n -v | sed -n 1p
 }
 
+# L'installation d'origine est écartée pendant les tests : le paquet ne doit rien lui emprunter
 etape "Tests sur une copie déplacée"
 deplace="$TRAVAIL/deplace"
 rm -rf "$deplace"
 mkdir -p "$deplace"
-cp -R "$PREFIXE" "$deplace/"
-mv "$PREFIXE" "$PREFIXE.origine"
+cp -R "$PAQUET" "$deplace/"
+mv "$INSTALLATION" "$INSTALLATION.ecartee"
 tester_php "$deplace/php-$VERSION_PHP"
-mv "$PREFIXE.origine" "$PREFIXE"
+mv "$INSTALLATION.ecartee" "$INSTALLATION"
 rm -rf "$deplace"
 
 etape "Paquet"
-empaqueter "$PREFIXE"
+empaqueter "$PAQUET"

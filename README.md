@@ -27,11 +27,18 @@ Toutes les archives sources sont listées dans [`sources.txt`](sources.txt) avec
 Prérequis : Xcode (outils en ligne de commande) et, depuis Homebrew, `cmake`, `pkgconf`, `autoconf` et `bison` (outils de compilation uniquement : les paquets n'en dépendent pas).
 
 ```bash
-brew install cmake pkgconf autoconf bison
+brew install cmake pkgconf autoconf bison ccache
 ./scripts/ci-local.sh tout
 ```
 
-`./scripts/ci-local.sh php` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Le script vérifie les outils et l'espace disque (10 Go), garde les dépendances de PHP en cache dans `travail/`, compile, teste le paquet déplacé, puis supprime les fichiers intermédiaires. Les paquets et leurs empreintes sont dans `sortie/`.
+`./scripts/ci-local.sh php` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
+
+**Reprise automatique** : chaque étape (chaque dépendance, configuration, compilation, Xdebug) a une empreinte calculée à partir de ses sources, de sa recette, de ses options et des étapes dont elle dépend. Relancer le script ne refait que les étapes dont l'empreinte a changé ; `ccache`, s'il est installé, garde les fichiers déjà compilés. Les caches vivent dans `travail/`.
+
+| Commande | Effet |
+|---|---|
+| `./scripts/ci-local.sh php --complet` | refait toutes les étapes, sans tenir compte du cache |
+| `./scripts/ci-local.sh nettoyer` | libère l'espace : arbres de compilation, dépendances, cache `ccache` (archives téléchargées et `sortie/` gardées) |
 
 Publication d'une release (étape manuelle, après vérification) :
 

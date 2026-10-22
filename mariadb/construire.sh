@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Compile MariaDB pour macOS arm64 avec ses dépendances embarquées (OpenSSL 3.5 statique, PCRE2, zlib),
 # teste le paquet déplacé (initialisation, démarrage, requêtes, greffon, export), l'empaquette.
+# Étapes en cache (OpenSSL, configuration, compilation) : seule une étape dont les entrées ont
+# changé est refaite ; le paquet (copie, nettoyage, vérifications, tests) est toujours refait.
 #
 #   ./mariadb/construire.sh
 
@@ -9,7 +11,14 @@ source "$(dirname "$0")/../scripts/commun.sh"
 VERSION_MARIADB=10.6.28
 SRC="$TRAVAIL/src-mariadb"
 DEPS="$TRAVAIL/deps-mariadb"
-PREFIXE="$TRAVAIL/paquets/mariadb-$VERSION_MARIADB"
+# Installation de compilation (gardée pour la reprise) et paquet (copie nettoyée de l'installation)
+INSTALLATION="$TRAVAIL/installation/mariadb-$VERSION_MARIADB"
+PAQUET="$TRAVAIL/paquets/mariadb-$VERSION_MARIADB"
+
+# Installation restée écartée par des tests interrompus : remise en place (évite une recompilation)
+if [ -d "$INSTALLATION.ecartee" ] && [ ! -e "$INSTALLATION" ]; then
+  mv "$INSTALLATION.ecartee" "$INSTALLATION"
+fi
 
 # pkg-config limité aux dépendances compilées ici : sans cela, le connecteur client trouve le
 # GnuTLS de Homebrew et le paquet en dépendrait
@@ -24,7 +33,7 @@ fi
 
 options_cmake=(
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
-  -DCMAKE_INSTALL_PREFIX="$PREFIXE"
+  -DCMAKE_INSTALL_PREFIX="$INSTALLATION"
   -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET"
   -DCMAKE_IGNORE_PREFIX_PATH="/opt/homebrew;/usr/local"
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5
@@ -63,29 +72,51 @@ options_cmake=(
   -DPLUGIN_PROVIDER_SNAPPY=NO
 )
 
-etape "OpenSSL 3.5 (statique)"
-if [ ! -f "$DEPS/lib/libssl.a" ]; then
+d="$SRC/mariadb-$VERSION_MARIADB"
+
+construire_openssl() {
+  local o
+  rm -rf "${DEPS:?}"
   o=$(extraire openssl-3.5.9.tar.gz "$SRC")
   # openssldir = magasin du système : les certificats racine de macOS servent par défaut
   (cd "$o" && ./Configure darwin64-arm64-cc no-shared no-tests no-docs --prefix="$DEPS" --libdir=lib \
     --openssldir=/private/etc/ssl && make -j"$COEURS" && make install_sw)
-fi
+  rm -rf "${o:?}"
+}
 
-etape "MariaDB $VERSION_MARIADB : configuration"
-d=$(extraire "mariadb-$VERSION_MARIADB.tar.gz" "$SRC")
-rm -rf "$PREFIXE"
-cmake -S "$d" -B "$d/build" "${options_cmake[@]}"
+configurer_mariadb() {
+  extraire "mariadb-$VERSION_MARIADB.tar.gz" "$SRC" >/dev/null
+  cmake -S "$d" -B "$d/build" "${options_cmake[@]}"
+}
 
-etape "MariaDB $VERSION_MARIADB : compilation"
-cmake --build "$d/build" -j"$COEURS"
-cmake --install "$d/build"
+compiler_mariadb() {
+  rm -rf "$INSTALLATION"
+  cmake --build "$d/build" -j"$COEURS"
+  cmake --install "$d/build"
+}
 
-# Fichiers inutiles à l'exécution
-rm -rf "$PREFIXE/mysql-test" "$PREFIXE/sql-bench" "$PREFIXE/include" "$PREFIXE/man" \
-  "$PREFIXE/docs" "$PREFIXE/lib/pkgconfig" "$PREFIXE/lib"/*.a
+# Empreintes : chaque étape inclut celle de la précédente
+cle_openssl=$(empreinte "$(source_de openssl-3.5.9.tar.gz)" "$(declare -f construire_openssl)" "$MACOSX_DEPLOYMENT_TARGET")
+cle_configuration=$(empreinte "$cle_openssl" "$(source_de "mariadb-$VERSION_MARIADB.tar.gz")" \
+  "$(declare -f configurer_mariadb)" "${options_cmake[*]}")
+cle_compilation=$(empreinte "$cle_configuration" "$(declare -f compiler_mariadb)")
+
+# Témoins rangés avec leur résultat : des dépendances, une source ou une installation refaites les invalident
+etape_en_cache "$DEPS/.etape-openssl" "$cle_openssl" "OpenSSL 3.5 (statique)" construire_openssl
+etape_en_cache "$d/.etape-configuration" "$cle_configuration" "MariaDB $VERSION_MARIADB : configuration" configurer_mariadb
+etape_en_cache "$INSTALLATION/.etape-compilation" "$cle_compilation" "MariaDB $VERSION_MARIADB : compilation" compiler_mariadb
+
+etape "Paquet : copie nettoyée de l'installation"
+rm -rf "$PAQUET"
+mkdir -p "$(dirname "$PAQUET")"
+cp -R "$INSTALLATION" "$PAQUET"
+# Fichiers inutiles à l'exécution (tests, en-têtes, documentation, bibliothèques statiques, témoins)
+rm -rf "$PAQUET/mysql-test" "$PAQUET/sql-bench" "$PAQUET/include" "$PAQUET/man" \
+  "$PAQUET/docs" "$PAQUET/lib/pkgconfig" "$PAQUET/lib"/*.a "$PAQUET"/.etape-*
+retirer_rpaths_absolus "$PAQUET"
 
 etape "Dépendances des binaires"
-verifier_liens "$PREFIXE"
+verifier_liens "$PAQUET"
 
 # tester_mariadb <dossier> : initialise, démarre, interroge et arrête un serveur depuis le paquet déplacé
 tester_mariadb() {
@@ -129,15 +160,16 @@ SQL
   rm -rf "$donnees"
 }
 
+# L'installation d'origine est écartée pendant les tests : le paquet ne doit rien lui emprunter
 etape "Tests sur une copie déplacée"
 deplace="$TRAVAIL/deplace"
 rm -rf "$deplace"
 mkdir -p "$deplace"
-cp -R "$PREFIXE" "$deplace/"
-mv "$PREFIXE" "$PREFIXE.origine"
+cp -R "$PAQUET" "$deplace/"
+mv "$INSTALLATION" "$INSTALLATION.ecartee"
 tester_mariadb "$deplace/mariadb-$VERSION_MARIADB"
-mv "$PREFIXE.origine" "$PREFIXE"
+mv "$INSTALLATION.ecartee" "$INSTALLATION"
 rm -rf "$deplace"
 
 etape "Paquet"
-empaqueter "$PREFIXE"
+empaqueter "$PAQUET"
