@@ -47,6 +47,9 @@ export LDFLAGS="-L$DEPS/lib $frameworks"
 # U_DEFINE_FALSE_AND_TRUE : ICU ≥ 68 ne définit plus TRUE/FALSE, employés par ext/intl
 export CFLAGS="-O2 -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-function-pointer-types"
 export CXXFLAGS="-O2 -DU_DEFINE_FALSE_AND_TRUE=1"
+# libedit du système (readline de la CLI) : macOS ne fournit pas de libedit.pc
+export EDIT_CFLAGS="-I$SDK/usr/include"
+export EDIT_LIBS="-ledit"
 
 options_php=(
   --prefix="$PREFIXE"
