@@ -17,6 +17,17 @@ SDK="$(xcrun --show-sdk-path)"
 
 export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"
 unset PKG_CONFIG_PATH
+
+# Bibliothèques statiques : configure doit recevoir leurs dépendances privées (curl → OpenSSL,
+# zlib, frameworks système…), que seul « pkg-config --static » fournit
+outils="$TRAVAIL/outils"
+mkdir -p "$outils"
+pkgconf_reel=$(command -v pkgconf || command -v pkg-config) || echec "pkg-config introuvable"
+printf '#!/bin/sh\nexec "%s" --static "$@"\n' "$pkgconf_reel" > "$outils/pkg-config-statique"
+chmod +x "$outils/pkg-config-statique"
+export PKG_CONFIG="$outils/pkg-config-statique"
+# ICU est en C++ : bibliothèque standard C++ de macOS
+export LIBS="-lc++"
 export CPPFLAGS="-I$DEPS/include"
 export LDFLAGS="-L$DEPS/lib"
 # clang ≥ 16 refuse des constructions C anciennes encore présentes dans PHP 7.4 et ses tests configure ;

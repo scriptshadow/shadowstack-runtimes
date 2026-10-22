@@ -26,9 +26,10 @@ jobs:
       - name: Outils de compilation
         run: brew install pkgconf autoconf
 
-      - name: Cache des dépendances compilées
+      # Lecture et écriture séparées : les dépendances sont gardées même si PHP échoue ensuite
+      - name: Cache des dépendances compilées (lecture)
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: travail/deps-php
           # Les versions des dépendances figurent dans dependances.sh : sources.txt n'entre pas dans la clé
@@ -37,6 +38,13 @@ jobs:
       - name: Dépendances (OpenSSL 1.1, ICU, libxml2…)
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./php/dependances.sh
+
+      - name: Cache des dépendances compilées (écriture)
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: travail/deps-php
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: PHP, Xdebug, tests et paquet
         run: ./php/construire.sh
