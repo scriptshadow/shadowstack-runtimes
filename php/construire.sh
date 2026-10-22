@@ -36,12 +36,11 @@ libs_statiques=$("$pkgconf_reel" --static --libs libcurl libzip) || echec "pkg-c
 # awk plutôt que grep -o : aucun framework n'est pas une erreur
 frameworks=$(printf '%s\n' "$libs_statiques" | tr ' ' '\n' | awk '$0 == "-framework" { getline; print "-framework " $0 }' | sort -u | tr '\n' ' ')
 echo "Bibliothèques statiques (curl, libzip) : $libs_statiques"
-export LDFLAGS="$LDFLAGS $frameworks"
 echo "Frameworks passés par LDFLAGS : ${frameworks:-aucun}"
 # ICU est en C++ : bibliothèque standard C++ de macOS
 export LIBS="-lc++"
 export CPPFLAGS="-I$DEPS/include"
-export LDFLAGS="-L$DEPS/lib"
+export LDFLAGS="-L$DEPS/lib $frameworks"
 # clang ≥ 16 refuse des constructions C anciennes encore présentes dans PHP 7.4 et ses tests configure ;
 # U_DEFINE_FALSE_AND_TRUE : ICU ≥ 68 ne définit plus TRUE/FALSE, employés par ext/intl
 export CFLAGS="-O2 -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-function-pointer-types"
