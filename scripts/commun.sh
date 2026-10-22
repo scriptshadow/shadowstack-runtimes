@@ -2,6 +2,9 @@
 # Fonctions communes aux scripts de compilation (à sourcer). Compatible bash 3.2 (macOS).
 
 set -euo pipefail
+# Jamais d'arrêt muet : la commande en échec et sa ligne sont affichées (errtrace : aussi dans les fonctions)
+set -o errtrace
+trap 'printf "\n\033[31m✖ Échec (code %s) ligne %s de %s : %s\033[0m\n" "$?" "$LINENO" "${BASH_SOURCE[0]##*/}" "$BASH_COMMAND" >&2' ERR
 
 RACINE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TRAVAIL="${TRAVAIL:-$RACINE/travail}"

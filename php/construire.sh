@@ -32,7 +32,10 @@ printf '%s\\n' "\$sortie" | sed -E 's/-framework [A-Za-z]+//g'
 SH
 chmod +x "$outils/pkg-config-statique"
 export PKG_CONFIG="$outils/pkg-config-statique"
-frameworks=$("$pkgconf_reel" --static --libs libcurl libzip | grep -oE -- '-framework [A-Za-z]+' | sort -u | tr '\n' ' ')
+libs_statiques=$("$pkgconf_reel" --static --libs libcurl libzip) || echec "pkg-config ne trouve pas libcurl ou libzip dans $DEPS"
+# awk plutôt que grep -o : aucun framework n'est pas une erreur
+frameworks=$(printf '%s\n' "$libs_statiques" | tr ' ' '\n' | awk '$0 == "-framework" { getline; print "-framework " $0 }' | sort -u | tr '\n' ' ')
+echo "Bibliothèques statiques (curl, libzip) : $libs_statiques"
 export LDFLAGS="$LDFLAGS $frameworks"
 echo "Frameworks passés par LDFLAGS : ${frameworks:-aucun}"
 # ICU est en C++ : bibliothèque standard C++ de macOS
