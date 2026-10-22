@@ -33,6 +33,8 @@ SH
 chmod +x "$outils/pkg-config-statique"
 export PKG_CONFIG="$outils/pkg-config-statique"
 libs_statiques=$("$pkgconf_reel" --static --libs libcurl libzip) || echec "pkg-config ne trouve pas libcurl ou libzip dans $DEPS"
+# libcurl.pc peut omettre les frameworks (SystemConfiguration pour les proxys) : curl-config fait foi
+libs_statiques="$libs_statiques $("$DEPS/bin/curl-config" --static-libs)"
 # awk plutôt que grep -o : aucun framework n'est pas une erreur
 frameworks=$(printf '%s\n' "$libs_statiques" | tr ' ' '\n' | awk '$0 == "-framework" { getline; print "-framework " $0 }' | sort -u | tr '\n' ' ')
 echo "Bibliothèques statiques (curl, libzip) : $libs_statiques"
@@ -89,8 +91,9 @@ etape "PHP $VERSION_PHP : configuration"
 d=$(extraire "php-$VERSION_PHP.tar.xz" "$SRC")
 rm -rf "$PREFIXE"
 if ! (cd "$d" && ./configure "${options_php[@]}"); then
-  echo "--- fin de config.log ---" >&2
-  tail -n 80 "$d/config.log" >&2
+  # Dernier test exécuté : juste avant la section « Cache variables » de config.log
+  echo "--- config.log : derniers tests ---" >&2
+  awk '/^## Cache variables\. ##/ { exit } { print }' "$d/config.log" | tail -n 60 >&2
   echec "Configuration de PHP en échec"
 fi
 
