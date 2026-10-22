@@ -1,0 +1,27 @@
+#!/bin/sh
+# Refuse un message de commit hors format (GIT.md §6) ou mentionnant un outil (GIT.md §7).
+# Activé par : git config core.hooksPath scripts/hooks
+
+fichier="$1"
+# Lignes de commentaire de Git (« # … ») exclues
+message=$(grep -v '^#' "$fichier")
+titre=$(printf '%s\n' "$message" | sed -n '1p')
+
+emojis='✨|🐛|♻️|💄|⚡|✅|📝|🔧|📦|🔒|♿'
+types='feat|fix|refactor|style|perf|test|docs|chore|build|security|a11y'
+
+if ! printf '%s\n' "$titre" | grep -qE "^($emojis) ($types): .+"; then
+  echo "✖ Titre de commit hors format : « [emoji] type: description » (GIT.md §6)" >&2
+  echo "  Reçu : $titre" >&2
+  echo "  Exemple : ✨ feat: ajouter la commande start au CLI Rust" >&2
+  exit 1
+fi
+
+mentions=$(printf '%s\n' "$message" \
+  | grep -inE 'co-authored-by|anthropic|copilot|codex|claude|\<gpt\>|\<llm\>|generated with' \
+  | grep -viE 'claude\.md|claude §')
+if [ -n "$mentions" ]; then
+  echo "✖ Mention d'outil interdite dans le message de commit (GIT.md §7) :" >&2
+  printf '%s\n' "$mentions" | sed 's/^/  /' >&2
+  exit 1
+fi

@@ -1,0 +1,6 @@
+# Dossiers de compilation et paquets produits
+travail/
+sortie/
+
+# Fichiers système
+.DS_Store

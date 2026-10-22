@@ -1,0 +1,13 @@
+#!/bin/sh
+# Refuse l'envoi si un fichier suivi est modifié sans être indexé (GIT.md §3) :
+# ci-local valide la copie de travail, alors que le commit emporte l'index.
+# Les fichiers non suivis ne bloquent pas.
+# Activé par : git config core.hooksPath scripts/hooks
+
+modifies=$(git diff --name-only)
+if [ -n "$modifies" ]; then
+  echo "✖ Envoi refusé : fichiers suivis modifiés mais non indexés (GIT.md §3)" >&2
+  printf '%s\n' "$modifies" | sed 's/^/  /' >&2
+  echo "  Les indexer et les committer, ou les mettre de côté (git stash), puis recommencer." >&2
+  exit 1
+fi
