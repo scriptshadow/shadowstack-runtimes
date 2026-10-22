@@ -1,0 +1,52 @@
+name: PHP 7.4 (macOS arm64)
+
+on:
+  push:
+    paths:
+      - "php/**"
+      - "scripts/**"
+      - "sources.txt"
+      - ".github/workflows/php.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construire:
+    runs-on: macos-14
+    timeout-minutes: 150
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      # Outils de compilation seulement : le paquet n'en dépend pas (vérifié par verifier_liens)
+      - name: Outils de compilation
+        run: brew install pkgconf autoconf
+
+      - name: Cache des dépendances compilées
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: travail/deps-php
+          key: deps-php-${{ hashFiles('php/dependances.sh', 'sources.txt', 'scripts/commun.sh') }}
+
+      - name: Dépendances (OpenSSL 1.1, ICU, libxml2…)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: ./php/dependances.sh
+
+      - name: PHP, Xdebug, tests et paquet
+        run: ./php/construire.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: php-7.4.33-macos-arm64
+          path: sortie/
+
+      - name: Publier la version
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/publier.sh php-7.4.33 "PHP 7.4.33 pour macOS arm64 (CLI, FPM, CGI, Xdebug 3.1.6)"

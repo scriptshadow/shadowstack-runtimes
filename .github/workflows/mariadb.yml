@@ -1,0 +1,41 @@
+name: MariaDB 10.6 (macOS arm64)
+
+on:
+  push:
+    paths:
+      - "mariadb/**"
+      - "scripts/**"
+      - "sources.txt"
+      - ".github/workflows/mariadb.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construire:
+    runs-on: macos-14
+    timeout-minutes: 150
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      # bison récent pour la grammaire SQL : outil de compilation seulement
+      - name: Outils de compilation
+        run: brew install bison
+
+      - name: MariaDB, tests et paquet
+        run: ./mariadb/construire.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mariadb-10.6.28-macos-arm64
+          path: sortie/
+
+      - name: Publier la version
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/publier.sh mariadb-10.6.28 "MariaDB 10.6.28 pour macOS arm64 (WolfSSL, PCRE2 et zlib embarqués)"
