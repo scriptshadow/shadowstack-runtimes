@@ -2,6 +2,8 @@
 
 Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP 7.4 ni MariaDB ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases).
 
+La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'utilise pas GitHub Actions.
+
 ## Paquets
 
 | Paquet | Contenu |
@@ -22,15 +24,20 @@ Toutes les archives sources sont listées dans [`sources.txt`](sources.txt) avec
 
 ## Compiler en local
 
-Prérequis : Xcode (outils en ligne de commande), CMake, et depuis Homebrew `pkgconf`, `autoconf` et `bison` (outils de compilation uniquement).
+Prérequis : Xcode (outils en ligne de commande) et, depuis Homebrew, `cmake`, `pkgconf`, `autoconf` et `bison` (outils de compilation uniquement : les paquets n'en dépendent pas).
 
 ```bash
-./php/dependances.sh
-./php/construire.sh
-./mariadb/construire.sh
+brew install cmake pkgconf autoconf bison
+./scripts/ci-local.sh tout
 ```
 
-Les paquets sont produits dans `sortie/`. Compter plusieurs Go d'espace disque et 20 à 40 minutes par composant.
+`./scripts/ci-local.sh php` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Le script vérifie les outils et l'espace disque (10 Go), garde les dépendances de PHP en cache dans `travail/`, compile, teste le paquet déplacé, puis supprime les fichiers intermédiaires. Les paquets et leurs empreintes sont dans `sortie/`.
+
+Publication d'une release (étape manuelle, après vérification) :
+
+```bash
+./scripts/publier.sh php-7.4.33 "PHP 7.4.33 pour macOS arm64"
+```
 
 ## Licences
 
