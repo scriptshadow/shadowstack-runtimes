@@ -7,6 +7,11 @@ mariadb-10.6.28.tar.gz          13d9330f3120c739757b215a3220a9c9e2ddf3c3c1b8beff
 # OpenSSL 3.5 LTS, statique : serveur et connecteur client (avec WolfSSL, le connecteur basculerait sur GnuTLS)
 openssl-3.5.9.tar.gz            603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a  https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz
 
+# MySQL : binaires officiels redistribués tels quels (pas de compilation). Oracle ne publie que le MD5 :
+# recoupé le 25/10/2026 (macOS 73926da59774274b5cdfe78cd2150840, Windows 7b94489d5524dea9b27097068bea25a8)
+mysql-8.4.13-macos15-arm64.tar.gz  f324f8950e24d4147470bbc6a6ef0b90ef93b91d3fc74154b3d2ba085b44912a  https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-macos15-arm64.tar.gz
+mysql-8.4.13-winx64.zip            e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54  https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip
+
 # PHP et Xdebug
 php-7.4.33.tar.xz               924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927  https://www.php.net/distributions/php-7.4.33.tar.xz
 xdebug-3.1.6.tgz                554eca0b4d5b7b93cb2258fab0b0bd84cc8721e74322a2255c14e137cbcad5d2  https://xdebug.org/files/xdebug-3.1.6.tgz
