@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Compile en statique les dépendances de PHP 7.4 dans $DEPS. Rien n'est pris dans Homebrew :
+# Compile en statique les dépendances de PHP (branche BRANCHE_PHP, cf. php/versions.sh) dans $DEPS.
+# Rien n'est pris dans Homebrew :
 # pkg-config ne cherche que dans $DEPS, CMake ignore /opt/homebrew et /usr/local.
 # Chaque dépendance a son propre cache : seule une dépendance modifiée (ou l'une de celles dont
 # elle dépend) est recompilée.
@@ -7,9 +8,9 @@
 #   ./php/dependances.sh
 
 source "$(dirname "$0")/../scripts/commun.sh"
+source "$(dirname "$0")/versions.sh"
 
-DEPS="${DEPS:-$TRAVAIL/deps-php}"
-SRC="$TRAVAIL/src-deps-php"
+SRC="$TRAVAIL/src-deps-php-$BRANCHE_PHP"
 TEMOINS="$DEPS/.etapes"
 
 export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"
@@ -69,10 +70,11 @@ construire_zlib() {
 
 construire_openssl() {
   local d
-  d=$(extraire openssl-1.1.1w.tar.gz "$SRC")
-  # openssldir = magasin du système : les certificats racine de macOS servent par défaut
-  (cd "$d" && ./Configure darwin64-arm64-cc no-shared no-tests --prefix="$DEPS" --openssldir=/private/etc/ssl \
-    && make -j"$COEURS" && make install_sw)
+  d=$(extraire "$ARCHIVE_OPENSSL" "$SRC")
+  # openssldir = magasin du système : les certificats racine de macOS servent par défaut ;
+  # --libdir=lib : OpenSSL 3 installerait sinon dans lib64 selon la plateforme
+  (cd "$d" && ./Configure darwin64-arm64-cc no-shared no-tests --prefix="$DEPS" --libdir=lib \
+    --openssldir=/private/etc/ssl && make -j"$COEURS" && make install_sw)
 }
 
 construire_libxml2() {
@@ -139,7 +141,7 @@ construire_curl() {
 mkdir -p "$DEPS" "$SRC" "$TEMOINS"
 
 dependance zlib zlib-1.3.1.tar.gz "" construire_zlib
-dependance openssl openssl-1.1.1w.tar.gz "" construire_openssl
+dependance openssl "$ARCHIVE_OPENSSL" "" construire_openssl
 dependance libxml2 libxml2-2.9.14.tar.xz "zlib" construire_libxml2
 dependance sqlite sqlite-autoconf-3460100.tar.gz "" construire_sqlite
 dependance oniguruma onig-6.9.9.tar.gz "" construire_oniguruma

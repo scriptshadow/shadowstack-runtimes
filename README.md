@@ -1,6 +1,6 @@
 # shadowstack-runtimes
 
-Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP 7.4 ni MariaDB ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases).
+Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP ni MariaDB ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases).
 
 La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'utilise pas GitHub Actions.
 
@@ -8,12 +8,13 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 
 | Paquet | Contenu |
 |---|---|
-| `php-7.4.33-macos-arm64.tar.gz` | PHP 7.4.33 (CLI, FPM, CGI), Xdebug 3.1.6, OPcache ; extensions courantes compilées dans le binaire (mysqli, pdo_mysql, intl, gd avec JPEG/PNG/FreeType, mbstring, curl, openssl, zip, soap…) |
+| `php-7.4.33-macos-arm64.tar.gz` | PHP 7.4.33 (CLI, FPM, CGI), Xdebug 3.1.6, OPcache ; extensions courantes compilées dans le binaire (mysqli, pdo_mysql, intl, gd avec JPEG/PNG/FreeType, mbstring, curl, openssl, zip, soap…) ; OpenSSL 1.1.1 |
+| `php-8.3.36-macos-arm64.tar.gz` | PHP 8.3.36, mêmes binaires et extensions, Xdebug 3.5.3, OPcache ; OpenSSL 3.5 |
 | `mariadb-10.6.28-macos-arm64.tar.gz` | MariaDB 10.6.28 : serveur, clients, `mariadb-dump`, `mariadb-install-db` |
 
 Chaque paquet :
 
-- **ne dépend que du système** : dépendances compilées en statique (OpenSSL 1.1.1, ICU 72, libxml2, curl… pour PHP ; OpenSSL 3.5, PCRE2, zlib pour MariaDB). La compilation échoue si un binaire référence une bibliothèque hors de `/usr/lib` et `/System` ;
+- **ne dépend que du système** : dépendances compilées en statique (OpenSSL 1.1.1 pour PHP 7.4 ou 3.5 pour PHP 8.3, ICU 72, libxml2, curl… pour PHP ; OpenSSL 3.5, PCRE2, zlib pour MariaDB). La compilation échoue si un binaire référence une bibliothèque hors de `/usr/lib` et `/System` ;
 - **fonctionne depuis n'importe quel dossier** : les tests tournent sur une copie déplacée ;
 - est accompagné de son empreinte SHA-256 (`.sha256`) ;
 - vise macOS 13 et plus.
@@ -31,19 +32,19 @@ brew install cmake pkgconf autoconf bison ccache
 ./scripts/ci-local.sh tout
 ```
 
-`./scripts/ci-local.sh php` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
+`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
 
 **Reprise automatique** : chaque étape (chaque dépendance, configuration, compilation, Xdebug) a une empreinte calculée à partir de ses sources, de sa recette, de ses options et des étapes dont elle dépend. Relancer le script ne refait que les étapes dont l'empreinte a changé ; `ccache`, s'il est installé, garde les fichiers déjà compilés. Les caches vivent dans `travail/`.
 
 | Commande | Effet |
 |---|---|
-| `./scripts/ci-local.sh php --complet` | refait toutes les étapes, sans tenir compte du cache |
+| `./scripts/ci-local.sh php 8.3 --complet` | refait toutes les étapes, sans tenir compte du cache |
 | `./scripts/ci-local.sh nettoyer` | libère l'espace : arbres de compilation, dépendances, cache `ccache` (archives téléchargées et `sortie/` gardées) |
 
 Publication d'une release (étape manuelle, après vérification) :
 
 ```bash
-./scripts/publier.sh php-7.4.33 "PHP 7.4.33 pour macOS arm64"
+./scripts/publier.sh php-8.3.36 "PHP 8.3.36 pour macOS arm64"
 ```
 
 ## Licences

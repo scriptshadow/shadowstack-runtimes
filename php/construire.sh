@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Compile PHP 7.4 (CLI, FPM, CGI) et Xdebug pour macOS arm64, teste le paquet déplacé, l'empaquette.
+# Compile PHP (CLI, FPM, CGI) et Xdebug pour macOS arm64, teste le paquet déplacé, l'empaquette.
+# Branche choisie par BRANCHE_PHP (7.4 par défaut, cf. php/versions.sh).
 # Les dépendances doivent avoir été compilées par php/dependances.sh.
 # Étapes en cache (configuration, compilation, Xdebug) : seule une étape dont les entrées ont
 # changé est refaite ; le paquet (copie, nettoyage, vérifications, tests) est toujours refait.
@@ -7,10 +8,8 @@
 #   ./php/construire.sh
 
 source "$(dirname "$0")/../scripts/commun.sh"
+source "$(dirname "$0")/versions.sh"
 
-VERSION_PHP=7.4.33
-VERSION_XDEBUG=3.1.6
-DEPS="${DEPS:-$TRAVAIL/deps-php}"
 SRC="$TRAVAIL/src-php"
 # Installation de compilation (gardée pour la reprise) et paquet (copie nettoyée de l'installation)
 INSTALLATION="$TRAVAIL/installation/php-$VERSION_PHP"
@@ -70,8 +69,12 @@ options_php=(
   --enable-cgi
   --disable-phpdbg
   --without-pear
-  # JIT de PCRE désactivé : instable sous macOS arm64 avant PHP 8
-  --without-pcre-jit
+)
+# JIT de PCRE désactivé en 7.4 : instable sous macOS arm64 avant PHP 8
+if [ "$BRANCHE_PHP" = 7.4 ]; then
+  options_php+=(--without-pcre-jit)
+fi
+options_php+=(
   --with-openssl
   --with-curl
   --with-zlib
@@ -177,7 +180,7 @@ tester_php() {
   [ ${#manquantes[@]} -eq 0 ] || echec "Extensions absentes : ${manquantes[*]}"
   echo "Extensions : toutes présentes"
 
-  "$php" -n -r '
+  OPENSSL_ATTENDU="$OPENSSL_ATTENDU" "$php" -n -r '
     $f = new IntlDateFormatter("fr_FR", IntlDateFormatter::FULL, IntlDateFormatter::NONE, "Africa/Abidjan");
     $verifs = [
       "intl"     => $f->format(0) === "jeudi 1 janvier 1970",
@@ -186,7 +189,7 @@ tester_php() {
       "gd png"   => gd_info()["PNG Support"] === true,
       "pcre"     => preg_match("/^é+$/u", "ééé") === 1,
       "mbstring" => mb_strtoupper("élève") === "ÉLÈVE",
-      "openssl"  => strpos(OPENSSL_VERSION_TEXT, "OpenSSL 1.1.1") === 0,
+      "openssl"  => strpos(OPENSSL_VERSION_TEXT, getenv("OPENSSL_ATTENDU")) === 0,
       "curl"     => strpos(curl_version()["ssl_version"], "OpenSSL") === 0,
       "zip"      => class_exists("ZipArchive"),
       "sqlite"   => (new PDO("sqlite::memory:"))->query("select 1")->fetchColumn() == 1,
