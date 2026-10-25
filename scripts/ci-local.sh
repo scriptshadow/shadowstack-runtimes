@@ -2,7 +2,7 @@
 # Compilation locale, à la place d'une CI distante (aucun GitHub Actions tant que le PO ne l'a pas
 # décidé) : même enchaînement que les anciens workflows, sur le Mac.
 #
-#   ./scripts/ci-local.sh php [--complet]       dépendances, PHP, Xdebug, tests, paquet
+#   ./scripts/ci-local.sh php [7.4|8.3] [--complet]   dépendances, PHP, Xdebug, tests, paquet (7.4 par défaut)
 #   ./scripts/ci-local.sh mariadb [--complet]   OpenSSL 3.5, MariaDB, tests, paquet
 #   ./scripts/ci-local.sh tout [--complet]      les deux
 #   ./scripts/ci-local.sh nettoyer              libère l'espace (caches et arbres de compilation)
@@ -18,7 +18,7 @@ ESPACE_MINIMUM_GO=10
 debut=$(date +%s)
 
 usage() {
-  echo "Usage : ./scripts/ci-local.sh php|mariadb|tout [--complet]" >&2
+  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|tout [--complet]" >&2
   echo "        ./scripts/ci-local.sh nettoyer" >&2
   exit 2
 }
@@ -79,11 +79,17 @@ case "$cible" in
   php | mariadb | tout) ;;
   *) usage ;;
 esac
-case "${2:-}" in
-  "") ;;
-  --complet) export COMPLET=1 ;;
-  *) usage ;;
-esac
+shift
+for option in "$@"; do
+  case "$option" in
+    --complet) export COMPLET=1 ;;
+    7.4 | 8.3)
+      [ "$cible" = php ] || usage
+      export BRANCHE_PHP="$option"
+      ;;
+    *) usage ;;
+  esac
+done
 
 etape "Vérifications préalables"
 verifier_outils

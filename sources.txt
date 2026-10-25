@@ -10,8 +10,12 @@ openssl-3.5.9.tar.gz            603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9c
 # PHP et Xdebug
 php-7.4.33.tar.xz               924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927  https://www.php.net/distributions/php-7.4.33.tar.xz
 xdebug-3.1.6.tgz                554eca0b4d5b7b93cb2258fab0b0bd84cc8721e74322a2255c14e137cbcad5d2  https://xdebug.org/files/xdebug-3.1.6.tgz
+# PHP 8.3 : SHA-256 publié par php.net ; Xdebug 3.5.3 (sans empreinte publiée) recoupé le 25/10/2026 : archives de xdebug.org et de PECL identiques
+php-8.3.36.tar.xz               dd54693aa334c5c4d72e9aee96b082c2473750a18a6c1d105789c93a3b1692fd  https://www.php.net/distributions/php-8.3.36.tar.xz
+xdebug-3.5.3.tgz                f073de91bea046106abf4d6071c963ea71e58571df6ce58948ceca89d121cb2d  https://xdebug.org/files/xdebug-3.5.3.tgz
 
-# Dépendances de PHP 7.4, compilées en statique (OpenSSL 1.1 et libxml2 2.9 : PHP 7.4 ne compile ni avec OpenSSL 3 ni avec libxml2 2.12)
+# Dépendances de PHP, compilées en statique (OpenSSL 1.1 et libxml2 2.9 pour PHP 7.4, qui ne compile ni avec OpenSSL 3 ni avec libxml2 2.12 ;
+# OpenSSL 3.5 ci-dessus pour PHP 8.3)
 zlib-1.3.1.tar.gz               9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23  https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
 openssl-1.1.1w.tar.gz           cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8  https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
 libxml2-2.9.14.tar.xz           60d74a257d1ccec0475e749cba2f21559e48139efba6ff28224357c7c798dfee  https://download.gnome.org/sources/libxml2/2.9/libxml2-2.9.14.tar.xz
