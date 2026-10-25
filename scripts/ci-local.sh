@@ -4,6 +4,7 @@
 #
 #   ./scripts/ci-local.sh php [7.4|8.3] [--complet]   dépendances, PHP, Xdebug, tests, paquet (7.4 par défaut)
 #   ./scripts/ci-local.sh mariadb [--complet]   OpenSSL 3.5, MariaDB, tests, paquet
+#   ./scripts/ci-local.sh mysql                 MySQL officiel vérifié, testé et redistribué tel quel
 #   ./scripts/ci-local.sh tout [--complet]      les deux
 #   ./scripts/ci-local.sh nettoyer              libère l'espace (caches et arbres de compilation)
 #
@@ -18,7 +19,7 @@ ESPACE_MINIMUM_GO=10
 debut=$(date +%s)
 
 usage() {
-  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|tout [--complet]" >&2
+  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|mysql|tout [--complet]" >&2
   echo "        ./scripts/ci-local.sh nettoyer" >&2
   exit 2
 }
@@ -76,7 +77,7 @@ case "$cible" in
     nettoyer_tout
     exit 0
     ;;
-  php | mariadb | tout) ;;
+  php | mariadb | mysql | tout) ;;
   *) usage ;;
 esac
 shift
@@ -92,7 +93,8 @@ for option in "$@"; do
 done
 
 etape "Vérifications préalables"
-verifier_outils
+# MySQL n'est pas compilé : seuls curl, shasum et otool servent (outils du système)
+[ "$cible" = mysql ] || verifier_outils
 verifier_espace
 if command -v ccache >/dev/null 2>&1; then
   ccache --zero-stats >/dev/null
@@ -101,6 +103,10 @@ fi
 case "$cible" in
   php) construire_php ;;
   mariadb) construire_mariadb ;;
+  mysql)
+    "$RACINE/mysql/redistribuer.sh"
+    nettoyer_copies
+    ;;
   tout)
     construire_php
     construire_mariadb

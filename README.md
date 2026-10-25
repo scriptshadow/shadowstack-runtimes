@@ -1,6 +1,6 @@
 # shadowstack-runtimes
 
-Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP ni MariaDB ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases).
+Binaires PHP et MariaDB pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP ni MariaDB ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases). MySQL publie les siens : ses archives officielles y sont redistribuées telles quelles, après vérification et tests, pour que ShadowStack garde une adresse stable (Oracle ne sert que la dernière version de chaque branche).
 
 La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'utilise pas GitHub Actions.
 
@@ -11,8 +11,9 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 | `php-7.4.33-macos-arm64.tar.gz` | PHP 7.4.33 (CLI, FPM, CGI), Xdebug 3.1.6, OPcache ; extensions courantes compilées dans le binaire (mysqli, pdo_mysql, intl, gd avec JPEG/PNG/FreeType, mbstring, curl, openssl, zip, soap…) ; OpenSSL 1.1.1 |
 | `php-8.3.36-macos-arm64.tar.gz` | PHP 8.3.36, mêmes binaires et extensions, Xdebug 3.5.3, OPcache ; OpenSSL 3.5 |
 | `mariadb-10.6.28-macos-arm64.tar.gz` | MariaDB 10.6.28 : serveur, clients, `mariadb-dump`, `mariadb-install-db` |
+| `mysql-8.4.13-macos15-arm64.tar.gz`, `mysql-8.4.13-winx64.zip` | MySQL 8.4.13 LTS, archives officielles d'Oracle inchangées (même SHA-256 ; MD5 publié par Oracle recoupé). L'archive macOS exige macOS 15 |
 
-Chaque paquet :
+Chaque paquet compilé :
 
 - **ne dépend que du système** : dépendances compilées en statique (OpenSSL 1.1.1 pour PHP 7.4 ou 3.5 pour PHP 8.3, ICU 72, libxml2, curl… pour PHP ; OpenSSL 3.5, PCRE2, zlib pour MariaDB). La compilation échoue si un binaire référence une bibliothèque hors de `/usr/lib` et `/System` ;
 - **fonctionne depuis n'importe quel dossier** : les tests tournent sur une copie déplacée ;
@@ -32,7 +33,7 @@ brew install cmake pkgconf autoconf bison ccache
 ./scripts/ci-local.sh tout
 ```
 
-`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` ou `./scripts/ci-local.sh mariadb` pour un seul composant. Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
+`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` ou `./scripts/ci-local.sh mariadb` pour un seul composant ; `./scripts/ci-local.sh mysql` vérifie, teste et copie dans `sortie/` les archives officielles de MySQL (sans compilation). Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
 
 **Reprise automatique** : chaque étape (chaque dépendance, configuration, compilation, Xdebug) a une empreinte calculée à partir de ses sources, de sa recette, de ses options et des étapes dont elle dépend. Relancer le script ne refait que les étapes dont l'empreinte a changé ; `ccache`, s'il est installé, garde les fichiers déjà compilés. Les caches vivent dans `travail/`.
 
@@ -53,6 +54,7 @@ Les paquets redistribuent des logiciels sous leurs propres licences :
 
 - PHP : PHP License 3.01 ; Xdebug : Xdebug License 1.03
 - MariaDB : GNU GPL v2 ; sources correspondantes : https://archive.mariadb.org/mariadb-10.6.28/source/
+- MySQL Community Server : GNU GPL v2 (licence et notices dans l'archive : `LICENSE`, `README`) ; sources correspondantes : https://dev.mysql.com/downloads/mysql/8.4.html (« Source Code »)
 - OpenSSL 1.1.1 : licence OpenSSL et SSLeay ; OpenSSL 3.5 : Apache 2.0 ; ICU : licence Unicode ; curl : licence curl ; libxml2, zlib, libpng, libjpeg-turbo, FreeType, libzip, Oniguruma, SQLite : licences libres respectives
 
 Les scripts de ce dépôt servent à reproduire chaque paquet à l'identique à partir de ces sources.
