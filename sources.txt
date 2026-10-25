@@ -12,6 +12,11 @@ openssl-3.5.9.tar.gz            603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9c
 mysql-8.4.13-macos15-arm64.tar.gz  f324f8950e24d4147470bbc6a6ef0b90ef93b91d3fc74154b3d2ba085b44912a  https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-macos15-arm64.tar.gz
 mysql-8.4.13-winx64.zip            e9cd98b1d23f122987b1afca26ad942efec5891481103d48ae3cde237fa3ea54  https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.13-winx64.zip
 
+# Nginx (signature PGP de nginx.org vérifiée le 25/10/2026 : clé de Sergey Kandaurov, D6786CE303D9A9022998DC6CC8464D549AF75C0A)
+# et PCRE2 (SHA-256 publié par GitHub pour la release), compilés dans le binaire de Nginx
+nginx-1.30.6.tar.gz             3cf46f5ed7504d460125866b7bea99fb357f31d887e2e63b35503310e9b8b6c8  https://nginx.org/download/nginx-1.30.6.tar.gz
+pcre2-10.49.tar.gz              929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae  https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.gz
+
 # PHP et Xdebug
 php-7.4.33.tar.xz               924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927  https://www.php.net/distributions/php-7.4.33.tar.xz
 xdebug-3.1.6.tgz                554eca0b4d5b7b93cb2258fab0b0bd84cc8721e74322a2255c14e137cbcad5d2  https://xdebug.org/files/xdebug-3.1.6.tgz
