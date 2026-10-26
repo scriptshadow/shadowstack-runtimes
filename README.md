@@ -1,6 +1,6 @@
 # shadowstack-runtimes
 
-Binaires PHP, MariaDB, Nginx et Apache pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP, ni MariaDB, ni Nginx, ni Apache ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases). MySQL publie les siens : ses archives officielles y sont redistribuées telles quelles, après vérification et tests, pour que ShadowStack garde une adresse stable (Oracle ne sert que la dernière version de chaque branche).
+Binaires PHP, MariaDB, PostgreSQL, Redis, Nginx et Apache pour **macOS arm64**, compilés pour ShadowStack, un environnement de développement web local. Ni PHP, ni MariaDB, ni PostgreSQL, ni Redis, ni Nginx, ni Apache ne publient de binaires officiels pour macOS : ce dépôt les compile, les teste et les publie dans ses [releases](../../releases). MySQL publie les siens : ses archives officielles y sont redistribuées telles quelles, après vérification et tests, pour que ShadowStack garde une adresse stable (Oracle ne sert que la dernière version de chaque branche).
 
 La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'utilise pas GitHub Actions.
 
@@ -14,6 +14,7 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 | `nginx-1.30.6-macos-arm64.tar.gz` | Nginx 1.30.6 (stable), moteur web derrière Caddy : PCRE2 10.49 avec JIT et zlib compilés dans le binaire, modules realip et threads ; sans TLS (Caddy le termine) |
 | `httpd-2.4.69-macos-arm64.tar.gz` | Apache httpd 2.4.69 (MPM event), moteur web derrière Caddy qui lit les `.htaccess` : OpenSSL 3.5, APR 1.7.6, APR-util 1.6.5 et PCRE2 10.49 en statique, modules compilés dans le binaire (rewrite, proxy_fcgi, balancer, remoteip, headers, deflate, ssl…) ; mod_ssl sert à la liaison entre Caddy et Apache |
 | `redis-8.10.2-macos-arm64.tar.gz` | Redis 8.10.2, service optionnel de ShadowStack (127.0.0.1) : serveur seul, allocateur de la libc, sans TLS ni modules (RediSearch, RedisJSON…) ; `redis-server`, `redis-cli` et outils. Licence AGPLv3 (l'une des licences de Redis 8), sources dans `sources.txt` |
+| `postgresql-18.6-macos-arm64.tar.gz` | PostgreSQL 18.6, service optionnel de ShadowStack (127.0.0.1) : serveur, clients (`psql`, `pg_dump`, `pg_restore`…), modules de contrib sans dépendance externe (`pg_trgm`, `unaccent`, `hstore`, `citext`…) ; sans ICU ni OpenSSL (collations par le fournisseur intégré `C.UTF-8`), libedit et zlib du système ; `libpq` reliée au paquet (`@loader_path`) |
 | `mysql-8.4.13-macos15-arm64.tar.gz`, `mysql-8.4.13-winx64.zip` | MySQL 8.4.13 LTS, archives officielles d'Oracle inchangées (même SHA-256 ; MD5 publié par Oracle recoupé). L'archive macOS exige macOS 15 |
 
 Chaque paquet compilé :
@@ -36,7 +37,7 @@ brew install cmake pkgconf autoconf bison ccache
 ./scripts/ci-local.sh tout
 ```
 
-`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` `./scripts/ci-local.sh mariadb`, `./scripts/ci-local.sh nginx`, `./scripts/ci-local.sh apache` ou `./scripts/ci-local.sh redis` pour un seul composant ; `./scripts/ci-local.sh mysql` vérifie, teste et copie dans `sortie/` les archives officielles de MySQL (sans compilation). Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
+`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` `./scripts/ci-local.sh mariadb`, `./scripts/ci-local.sh nginx`, `./scripts/ci-local.sh apache`, `./scripts/ci-local.sh redis` ou `./scripts/ci-local.sh postgresql` pour un seul composant ; `./scripts/ci-local.sh mysql` vérifie, teste et copie dans `sortie/` les archives officielles de MySQL (sans compilation). Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
 
 **Reprise automatique** : chaque étape (chaque dépendance, configuration, compilation, Xdebug) a une empreinte calculée à partir de ses sources, de sa recette, de ses options et des étapes dont elle dépend. Relancer le script ne refait que les étapes dont l'empreinte a changé ; `ccache`, s'il est installé, garde les fichiers déjà compilés. Les caches vivent dans `travail/`.
 
@@ -59,6 +60,7 @@ Les paquets redistribuent des logiciels sous leurs propres licences :
 - MariaDB : GNU GPL v2 ; sources correspondantes : https://archive.mariadb.org/mariadb-10.6.28/source/
 - Nginx : licence BSD à 2 clauses ; PCRE2 : licence BSD
 - Apache httpd, APR, APR-util : licence Apache 2.0
+- PostgreSQL : PostgreSQL License (licence libre de type BSD)
 - MySQL Community Server : GNU GPL v2 (licence et notices dans l'archive : `LICENSE`, `README`) ; sources correspondantes : https://dev.mysql.com/downloads/mysql/8.4.html (« Source Code »)
 - OpenSSL 1.1.1 : licence OpenSSL et SSLeay ; OpenSSL 3.5 : Apache 2.0 ; ICU : licence Unicode ; curl : licence curl ; libxml2, zlib, libpng, libjpeg-turbo, FreeType, libzip, Oniguruma, SQLite : licences libres respectives
 
