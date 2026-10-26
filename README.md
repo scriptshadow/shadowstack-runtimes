@@ -13,6 +13,7 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 | `mariadb-10.6.28-macos-arm64.tar.gz` | MariaDB 10.6.28 : serveur, clients, `mariadb-dump`, `mariadb-install-db` |
 | `nginx-1.30.6-macos-arm64.tar.gz` | Nginx 1.30.6 (stable), moteur web derrière Caddy : PCRE2 10.49 avec JIT et zlib compilés dans le binaire, modules realip et threads ; sans TLS (Caddy le termine) |
 | `httpd-2.4.69-macos-arm64.tar.gz` | Apache httpd 2.4.69 (MPM event), moteur web derrière Caddy qui lit les `.htaccess` : OpenSSL 3.5, APR 1.7.6, APR-util 1.6.5 et PCRE2 10.49 en statique, modules compilés dans le binaire (rewrite, proxy_fcgi, balancer, remoteip, headers, deflate, ssl…) ; mod_ssl sert à la liaison entre Caddy et Apache |
+| `redis-8.10.2-macos-arm64.tar.gz` | Redis 8.10.2, service optionnel de ShadowStack (127.0.0.1) : serveur seul, allocateur de la libc, sans TLS ni modules (RediSearch, RedisJSON…) ; `redis-server`, `redis-cli` et outils. Licence AGPLv3 (l'une des licences de Redis 8), sources dans `sources.txt` |
 | `mysql-8.4.13-macos15-arm64.tar.gz`, `mysql-8.4.13-winx64.zip` | MySQL 8.4.13 LTS, archives officielles d'Oracle inchangées (même SHA-256 ; MD5 publié par Oracle recoupé). L'archive macOS exige macOS 15 |
 
 Chaque paquet compilé :
@@ -35,7 +36,7 @@ brew install cmake pkgconf autoconf bison ccache
 ./scripts/ci-local.sh tout
 ```
 
-`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` `./scripts/ci-local.sh mariadb`, `./scripts/ci-local.sh nginx` ou `./scripts/ci-local.sh apache` pour un seul composant ; `./scripts/ci-local.sh mysql` vérifie, teste et copie dans `sortie/` les archives officielles de MySQL (sans compilation). Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
+`./scripts/ci-local.sh php` (PHP 7.4), `./scripts/ci-local.sh php 8.3` `./scripts/ci-local.sh mariadb`, `./scripts/ci-local.sh nginx`, `./scripts/ci-local.sh apache` ou `./scripts/ci-local.sh redis` pour un seul composant ; `./scripts/ci-local.sh mysql` vérifie, teste et copie dans `sortie/` les archives officielles de MySQL (sans compilation). Les branches de PHP (version complète, Xdebug, OpenSSL) sont décrites dans [`php/versions.sh`](php/versions.sh) ; chacune a son propre jeu de dépendances dans `travail/`. Le script vérifie les outils et l'espace disque (10 Go), compile, teste le paquet sur une copie déplacée et produit le paquet et son empreinte dans `sortie/`.
 
 **Reprise automatique** : chaque étape (chaque dépendance, configuration, compilation, Xdebug) a une empreinte calculée à partir de ses sources, de sa recette, de ses options et des étapes dont elle dépend. Relancer le script ne refait que les étapes dont l'empreinte a changé ; `ccache`, s'il est installé, garde les fichiers déjà compilés. Les caches vivent dans `travail/`.
 

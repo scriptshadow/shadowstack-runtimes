@@ -7,6 +7,7 @@
 #   ./scripts/ci-local.sh mysql                 MySQL officiel vérifié, testé et redistribué tel quel
 #   ./scripts/ci-local.sh nginx [--complet]     Nginx (PCRE2, zlib), tests, paquet
 #   ./scripts/ci-local.sh apache [--complet]    Apache httpd (APR, APR-util, PCRE2), tests, paquet
+#   ./scripts/ci-local.sh redis [--complet]     Redis (sans TLS ni modules), tests, paquet
 #   ./scripts/ci-local.sh tout [--complet]      les deux
 #   ./scripts/ci-local.sh nettoyer              libère l'espace (caches et arbres de compilation)
 #
@@ -21,7 +22,7 @@ ESPACE_MINIMUM_GO=10
 debut=$(date +%s)
 
 usage() {
-  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|mysql|nginx|apache|tout [--complet]" >&2
+  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|mysql|nginx|apache|redis|tout [--complet]" >&2
   echo "        ./scripts/ci-local.sh nettoyer" >&2
   exit 2
 }
@@ -79,7 +80,7 @@ case "$cible" in
     nettoyer_tout
     exit 0
     ;;
-  php | mariadb | mysql | nginx | apache | tout) ;;
+  php | mariadb | mysql | nginx | apache | redis | tout) ;;
   *) usage ;;
 esac
 shift
@@ -115,6 +116,10 @@ case "$cible" in
     ;;
   apache)
     "$RACINE/apache/construire.sh"
+    nettoyer_copies
+    ;;
+  redis)
+    "$RACINE/redis/construire.sh"
     nettoyer_copies
     ;;
   tout)
