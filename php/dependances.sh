@@ -138,6 +138,34 @@ construire_curl() {
     --without-librtmp --without-libssh2 --disable-ldap --disable-docs --disable-manual
 }
 
+construire_libpq() {
+  local d
+  d=$(extraire postgresql-18.6.tar.bz2 "$SRC")
+  # Client seul (libpq, pg_config, libpgcommon et libpgport statiques), avec l'OpenSSL de la
+  # branche : connexions chiffrées vers un serveur distant (sslmode=require)
+  (cd "$d" && ./configure --prefix="$DEPS" --with-ssl=openssl --without-icu --without-readline \
+    --without-zlib --disable-rpath)
+  local m
+  for m in src/include src/common src/port src/bin/pg_config; do
+    make -C "$d/$m" -j"$COEURS"
+    make -C "$d/$m" install
+  done
+  # libpq.a seule, avec ses en-têtes publics : la cible complète construit aussi libpq.dylib et
+  # la refuse ensuite, car l'OpenSSL statique y apporte atexit() (contrôle libpq-refs-stamp).
+  # Sans .dylib à côté, ld prend la bibliothèque statique.
+  make -C "$d/src/interfaces/libpq" -j"$COEURS" all-static-lib
+  make -C "$d/src/interfaces/libpq" install-lib-static
+  install -m 644 "$d/src/interfaces/libpq/libpq-fe.h" "$d/src/interfaces/libpq/libpq-events.h" "$DEPS/include/"
+}
+
+construire_libmemcached() {
+  local d
+  d=$(extraire libmemcached-1.1.4.tar.gz "$SRC")
+  # Bibliothèque seule pour l'extension memcached : ni SASL, ni DTrace, ni tests, ni documentation
+  cmake_construire "$d" -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF -DENABLE_SASL=OFF -DENABLE_DTRACE=OFF \
+    -DENABLE_MEMASLAP=OFF
+}
+
 mkdir -p "$DEPS" "$SRC" "$TEMOINS"
 
 dependance zlib zlib-1.3.1.tar.gz "" construire_zlib
@@ -151,6 +179,8 @@ dependance libjpeg libjpeg-turbo-3.0.3.tar.gz "" construire_libjpeg
 dependance freetype freetype-2.13.2.tar.xz "" construire_freetype
 dependance libzip libzip-1.10.1.tar.xz "zlib" construire_libzip
 dependance curl curl-8.10.1.tar.xz "zlib openssl" construire_curl
+dependance libpq postgresql-18.6.tar.bz2 "openssl" construire_libpq
+dependance libmemcached libmemcached-1.1.4.tar.gz "" construire_libmemcached
 
 # Sources extraites : inutiles une fois installées (une dépendance à refaire est ré-extraite)
 rm -rf "${SRC:?}"

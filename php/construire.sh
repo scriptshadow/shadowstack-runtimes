@@ -45,8 +45,9 @@ libs_statiques="$libs_statiques $("$DEPS/bin/curl-config" --static-libs)"
 # awk plutôt que grep -o : aucun framework n'est pas une erreur
 frameworks=$(printf '%s\n' "$libs_statiques" | tr ' ' '\n' | awk '$0 == "-framework" { getline; print "-framework " $0 }' | sort -u | tr '\n' ' ')
 echo "Frameworks passés par LDFLAGS : ${frameworks:-aucun}"
-# ICU est en C++ : bibliothèque standard C++ de macOS
-export LIBS="-lc++"
+# ICU est en C++ : bibliothèque standard C++ de macOS. libpq statique (pgsql, pdo_pgsql) : ses
+# bibliothèques internes et OpenSSL, que le test de liaison de configure doit aussi recevoir
+export LIBS="-lc++ -lpgcommon_shlib -lpgport_shlib -lssl -lcrypto"
 export CPPFLAGS="-I$DEPS/include"
 export LDFLAGS="-L$DEPS/lib $frameworks"
 # clang ≥ 16 refuse des constructions C anciennes encore présentes dans PHP 7.4 et ses tests configure ;
@@ -101,11 +102,14 @@ options_php+=(
   --with-pdo-mysql=mysqlnd
   --with-sqlite3
   --with-pdo-sqlite
+  --with-pgsql="$DEPS"
+  --with-pdo-pgsql="$DEPS"
   --enable-opcache
 )
 
 d="$SRC/php-$VERSION_PHP"
 x="$SRC/xdebug-$VERSION_XDEBUG"
+mc="$SRC/memcached-$VERSION_MEMCACHED_EXT"
 
 configurer_php() {
   extraire "php-$VERSION_PHP.tar.xz" "$SRC" >/dev/null
@@ -131,6 +135,18 @@ construire_xdebug() {
     --with-php-config="$INSTALLATION/bin/php-config" --enable-xdebug && make -j"$COEURS" && make install)
 }
 
+construire_memcached() {
+  extraire "memcached-$VERSION_MEMCACHED_EXT.tgz" "$SRC" >/dev/null
+  # Sérialiseur PHP par défaut (celui de Laravel et Symfony) ; gestionnaire de sessions inclus.
+  # libmemcached.pc ne nomme pas libhashkit, dont libmemcached.a a besoin : sans elle, les
+  # fonctions hashkit_* restent à résoudre au chargement (-undefined dynamic_lookup des extensions)
+  # et le premier « new Memcached() » saute à l'adresse 0
+  (cd "$mc" && "$INSTALLATION/bin/phpize" && CFLAGS="$CFLAGS -std=gnu17" LDFLAGS="$LDFLAGS -lhashkit" ./configure \
+    --with-php-config="$INSTALLATION/bin/php-config" --enable-memcached \
+    --with-libmemcached-dir="$DEPS" --with-zlib-dir="$DEPS" --disable-memcached-sasl \
+    --enable-memcached-session && make -j"$COEURS" && make install)
+}
+
 # Empreintes : chaque étape inclut celle de la précédente, et la configuration celle des dépendances
 cle_configuration=$(empreinte "$(source_de "php-$VERSION_PHP.tar.xz")" "$(declare -f configurer_php)" \
   "${options_php[*]}" "$CFLAGS" "$CXXFLAGS" "$CPPFLAGS" "$LDFLAGS" "$LIBS" "$EDIT_CFLAGS" "$EDIT_LIBS" \
@@ -138,11 +154,14 @@ cle_configuration=$(empreinte "$(source_de "php-$VERSION_PHP.tar.xz")" "$(declar
   "$(cat "$DEPS/.etapes"/*)")
 cle_compilation=$(empreinte "$cle_configuration" "$(declare -f compiler_php)")
 cle_xdebug=$(empreinte "$cle_compilation" "$(source_de "xdebug-$VERSION_XDEBUG.tgz")" "$(declare -f construire_xdebug)")
+cle_memcached=$(empreinte "$cle_xdebug" "$(source_de "memcached-$VERSION_MEMCACHED_EXT.tgz")" \
+  "$(declare -f construire_memcached)" "$(cat "$DEPS/.etapes/libmemcached")")
 
 # Témoins rangés avec leur résultat : une source ré-extraite ou une installation refaite les invalide
 etape_en_cache "$d/.etape-configuration" "$cle_configuration" "PHP $VERSION_PHP : configuration" configurer_php
 etape_en_cache "$INSTALLATION/.etape-compilation" "$cle_compilation" "PHP $VERSION_PHP : compilation" compiler_php
 etape_en_cache "$INSTALLATION/.etape-xdebug" "$cle_xdebug" "Xdebug $VERSION_XDEBUG" construire_xdebug
+etape_en_cache "$INSTALLATION/.etape-memcached" "$cle_memcached" "Extension memcached $VERSION_MEMCACHED_EXT" construire_memcached
 
 etape "Paquet : copie nettoyée de l'installation"
 rm -rf "$PAQUET"
@@ -173,7 +192,7 @@ tester_php() {
   local manquantes=() m modules version
   modules=$("$php" -n -m)
   for m in bcmath calendar ctype curl date dom exif fileinfo filter gd hash iconv intl json \
-    libxml mbstring mysqli mysqlnd openssl pcntl pcre pdo pdo_mysql pdo_sqlite posix readline \
+    libxml mbstring mysqli mysqlnd openssl pcntl pcre pdo pdo_mysql pdo_pgsql pdo_sqlite pgsql posix readline \
     session simplexml soap sockets sqlite3 tokenizer xml xmlreader xmlwriter zip zlib; do
     grep -qix "$m" <<<"$modules" || manquantes+=("$m")
   done
@@ -193,6 +212,12 @@ tester_php() {
       "curl"     => strpos(curl_version()["ssl_version"], "OpenSSL") === 0,
       "zip"      => class_exists("ZipArchive"),
       "sqlite"   => (new PDO("sqlite::memory:"))->query("select 1")->fetchColumn() == 1,
+      // libpq liée et fonctionnelle : port 1 fermé, la connexion doit être refusée par le système
+      "pgsql"    => (function () {
+        try { new PDO("pgsql:host=127.0.0.1;port=1;connect_timeout=2"); return false; }
+        catch (PDOException $e) { return strpos($e->getMessage(), "Connection refused") !== false; }
+      })(),
+      "libpq"    => defined("PGSQL_LIBPQ_VERSION") && version_compare(PGSQL_LIBPQ_VERSION, "18", ">="),
     ];
     foreach ($verifs as $nom => $ok) { echo str_pad($nom, 10), $ok ? "ok" : "ÉCHEC", "\n"; }
     exit(in_array(false, $verifs, true) ? 1 : 0);
@@ -203,6 +228,18 @@ tester_php() {
   version=$("$php" -n -d zend_extension="$ext/xdebug.so" -v)
   grep -q "with Xdebug v$VERSION_XDEBUG" <<<"$version" || echec "Xdebug ne se charge pas"
   echo "OPcache et Xdebug : chargés"
+  # Extension memcached chargée, libmemcached liée : un serveur absent (port 1) refuse l'écriture
+  VERSION_MEMCACHED_EXT="$VERSION_MEMCACHED_EXT" "$php" -n -d extension="$ext/memcached.so" -r '
+    $m = new Memcached();
+    $m->setOption(Memcached::OPT_CONNECT_TIMEOUT, 500);
+    $m->addServer("127.0.0.1", 1);
+    exit(phpversion("memcached") === getenv("VERSION_MEMCACHED_EXT") && $m->set("essai", "KONÉ Awa") === false ? 0 : 1);
+  ' || echec "Extension memcached absente ou inutilisable"
+  # Aucune fonction de libmemcached laissée à résoudre au chargement
+  if nm -u "$ext/memcached.so" | grep -E '^_(memcached|hashkit|libmemcached)_'; then
+    echec "Extension memcached : fonctions de libmemcached non liées"
+  fi
+  echo "memcached : chargée"
 
   local ordre
   ordre=$("$php" -c "$p/etc/php.ini" -r 'echo ini_get("variables_order");')
@@ -225,4 +262,8 @@ mv "$INSTALLATION.ecartee" "$INSTALLATION"
 rm -rf "$deplace"
 
 etape "Paquet"
-empaqueter "$PAQUET"
+if [ "$REVISION_PHP" -gt 1 ]; then
+  empaqueter "$PAQUET" "php-$VERSION_PHP-r$REVISION_PHP"
+else
+  empaqueter "$PAQUET"
+fi

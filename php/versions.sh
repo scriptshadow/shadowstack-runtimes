@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Branches de PHP compilées (à sourcer après commun.sh) : version complète, Xdebug et OpenSSL de
 # chacune. BRANCHE_PHP choisit la branche (./scripts/ci-local.sh php 8.3) ; 7.4 par défaut.
+#
+# REVISION_PHP : révision du paquet pour une même version de PHP (1 : première publication,
+# php-7.4.33-macos-arm64.tar.gz ; 2 et plus : php-7.4.33-r2-macos-arm64.tar.gz, release
+# php-7.4.33-r2). Une archive publiée n'est jamais remplacée : le catalogue de ShadowStack fixe
+# son empreinte. Révision 2 : pgsql et pdo_pgsql (libpq 18 statique), extension memcached.
+REVISION_PHP=2
+# Extension memcached (PECL), compilée à part comme Xdebug, avec libmemcached statique
+VERSION_MEMCACHED_EXT=3.4.0
 
 BRANCHE_PHP="${BRANCHE_PHP:-7.4}"
 case "$BRANCHE_PHP" in
