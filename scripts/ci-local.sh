@@ -9,6 +9,7 @@
 #   ./scripts/ci-local.sh apache [--complet]    Apache httpd (APR, APR-util, PCRE2), tests, paquet
 #   ./scripts/ci-local.sh redis [--complet]     Redis (sans TLS ni modules), tests, paquet
 #   ./scripts/ci-local.sh postgresql [--complet]  PostgreSQL (serveur, clients, contrib), tests, paquet
+#   ./scripts/ci-local.sh memcached [--complet]   Memcached (libevent statique), tests, paquet
 #   ./scripts/ci-local.sh tout [--complet]      les deux
 #   ./scripts/ci-local.sh nettoyer              libère l'espace (caches et arbres de compilation)
 #
@@ -23,7 +24,7 @@ ESPACE_MINIMUM_GO=10
 debut=$(date +%s)
 
 usage() {
-  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|mysql|nginx|apache|redis|postgresql|tout [--complet]" >&2
+  echo "Usage : ./scripts/ci-local.sh php [7.4|8.3]|mariadb|mysql|nginx|apache|redis|postgresql|memcached|tout [--complet]" >&2
   echo "        ./scripts/ci-local.sh nettoyer" >&2
   exit 2
 }
@@ -81,7 +82,7 @@ case "$cible" in
     nettoyer_tout
     exit 0
     ;;
-  php | mariadb | mysql | nginx | apache | redis | postgresql | tout) ;;
+  php | mariadb | mysql | nginx | apache | redis | postgresql | memcached | tout) ;;
   *) usage ;;
 esac
 shift
@@ -125,6 +126,10 @@ case "$cible" in
     ;;
   postgresql)
     "$RACINE/postgresql/construire.sh"
+    nettoyer_copies
+    ;;
+  memcached)
+    "$RACINE/memcached/construire.sh"
     nettoyer_copies
     ;;
   tout)

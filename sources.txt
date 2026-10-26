@@ -53,3 +53,8 @@ memcached-3.4.0.tgz             c163434eb0da97c8f45c7ad41d979d381f8b81c49402b1b9
 
 # PostgreSQL (empreinte recoupée le 26/10/2026 avec celle publiée par postgresql.org, postgresql-18.6.tar.bz2.sha256)
 postgresql-18.6.tar.bz2         555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f  https://ftp.postgresql.org/pub/source/v18.6/postgresql-18.6.tar.bz2
+
+# Memcached (SHA-1 publié par memcached.org recoupé le 26/10/2026 : 45038980ea7045a548b9b5b5125ef7116312a768)
+# et libevent (signature PGP de la release vérifiée le 26/10/2026 : clé de Nick Mathewson, 7A02B3521DC75C542BA015456AFEE6D49E92B601)
+memcached-1.6.45.tar.gz         d362c64e6d8d5287153501eabf7c85b4a761432fbf53f5d7b085d0bb1653c1dd  https://www.memcached.org/files/memcached-1.6.45.tar.gz
+libevent-2.1.13-stable.tar.gz   f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c  https://github.com/libevent/libevent/releases/download/release-2.1.13-stable/libevent-2.1.13-stable.tar.gz
