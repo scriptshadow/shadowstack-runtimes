@@ -10,6 +10,7 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 |---|---|
 | `php-7.4.33-macos-arm64.tar.gz` | PHP 7.4.33 (CLI, FPM, CGI), Xdebug 3.1.6, OPcache ; extensions courantes compilées dans le binaire (mysqli, pdo_mysql, intl, gd avec JPEG/PNG/FreeType, mbstring, curl, openssl, zip, soap…) ; OpenSSL 1.1.1 |
 | `php-8.3.36-macos-arm64.tar.gz` | PHP 8.3.36, mêmes binaires et extensions, Xdebug 3.5.3, OPcache ; OpenSSL 3.5 |
+| `php-7.4.33-r2-macos-arm64.tar.gz`, `php-8.3.36-r2-macos-arm64.tar.gz` | Révision 2 des deux paquets PHP : mêmes binaires et extensions, plus `pgsql` et `pdo_pgsql` (libpq 18 statique, avec l'OpenSSL de la branche) et l'extension `memcached` 3.4.0 (`memcached.so`, libmemcached 1.1.4 statique, sans SASL), à charger avec `extension=memcached`. Une archive publiée n'est jamais remplacée : chaque reconstruction d'une même version de PHP prend un nouveau numéro (`REVISION_PHP`, `php/versions.sh`) |
 | `mariadb-10.6.28-macos-arm64.tar.gz` | MariaDB 10.6.28 : serveur, clients, `mariadb-dump`, `mariadb-install-db` |
 | `nginx-1.30.6-macos-arm64.tar.gz` | Nginx 1.30.6 (stable), moteur web derrière Caddy : PCRE2 10.49 avec JIT et zlib compilés dans le binaire, modules realip et threads ; sans TLS (Caddy le termine) |
 | `httpd-2.4.69-macos-arm64.tar.gz` | Apache httpd 2.4.69 (MPM event), moteur web derrière Caddy qui lit les `.htaccess` : OpenSSL 3.5, APR 1.7.6, APR-util 1.6.5 et PCRE2 10.49 en statique, modules compilés dans le binaire (rewrite, proxy_fcgi, balancer, remoteip, headers, deflate, ssl…) ; mod_ssl sert à la liaison entre Caddy et Apache |
@@ -56,7 +57,7 @@ Publication d'une release (étape manuelle, après vérification) :
 
 Les paquets redistribuent des logiciels sous leurs propres licences :
 
-- PHP : PHP License 3.01 ; Xdebug : Xdebug License 1.03
+- PHP : PHP License 3.01 ; Xdebug : Xdebug License 1.03 ; extension memcached : PHP License 3.01 ; libmemcached : licence BSD
 - MariaDB : GNU GPL v2 ; sources correspondantes : https://archive.mariadb.org/mariadb-10.6.28/source/
 - Nginx : licence BSD à 2 clauses ; PCRE2 : licence BSD
 - Apache httpd, APR, APR-util : licence Apache 2.0

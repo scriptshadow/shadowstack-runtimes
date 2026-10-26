@@ -166,13 +166,16 @@ retirer_rpaths_absolus() {
   echo "LC_RPATH absolus retirés : $modifies binaire(s), re-signés en ad hoc"
 }
 
-# empaqueter <dossier> : crée <nom>-<cible>.tar.gz et son .sha256 dans $SORTIE
+# empaqueter <dossier> [nom] : crée <nom>-<cible>.tar.gz et son .sha256 dans $SORTIE (nom du
+# dossier par défaut ; un nom de révision, php-7.4.33-r2, ne remplace jamais un paquet publié).
+# L'archive contient toujours le dossier sous son propre nom (php-7.4.33/) : la racine attendue
+# par le catalogue ne change pas d'une révision à l'autre
 empaqueter() {
-  local dossier="$1" nom archive
-  nom=$(basename "$dossier")
+  local dossier="$1" nom="${2:-}" archive
+  [ -n "$nom" ] || nom=$(basename "$dossier")
   archive="$nom-$CIBLE.tar.gz"
   mkdir -p "$SORTIE"
-  tar -czf "$SORTIE/$archive" -C "$(dirname "$dossier")" "$nom"
+  tar -czf "$SORTIE/$archive" -C "$(dirname "$dossier")" "$(basename "$dossier")"
   (cd "$SORTIE" && shasum -a 256 "$archive" > "$archive.sha256")
   echo "Paquet : $SORTIE/$archive ($(du -h "$SORTIE/$archive" | awk '{print $1}'))"
   cat "$SORTIE/$archive.sha256"
