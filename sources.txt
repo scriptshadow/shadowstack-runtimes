@@ -17,6 +17,11 @@ mysql-8.4.13-winx64.zip            e9cd98b1d23f122987b1afca26ad942efec5891481103
 nginx-1.30.6.tar.gz             3cf46f5ed7504d460125866b7bea99fb357f31d887e2e63b35503310e9b8b6c8  https://nginx.org/download/nginx-1.30.6.tar.gz
 pcre2-10.49.tar.gz              929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae  https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.gz
 
+# Apache httpd, APR et APR-util : SHA-256 publiés par la fondation Apache (downloads.apache.org), recoupés le 26/10/2026
+httpd-2.4.69.tar.gz             c551b9861e26f146f57e1b1765e69c89a60b3db0ec252ccab0d36283487016bb  https://downloads.apache.org/httpd/httpd-2.4.69.tar.gz
+apr-1.7.6.tar.gz                6a10e7f7430510600af25fabf466e1df61aaae910bf1dc5d10c44a4433ccc81d  https://downloads.apache.org/apr/apr-1.7.6.tar.gz
+apr-util-1.6.5.tar.gz           f43a1c8c79eef497a022ec6c99dddbdf57e42001da6ccbfae259631ed5aa2805  https://downloads.apache.org/apr/apr-util-1.6.5.tar.gz
+
 # PHP et Xdebug
 php-7.4.33.tar.xz               924846abf93bc613815c55dd3f5809377813ac62a9ec4eb3778675b82a27b927  https://www.php.net/distributions/php-7.4.33.tar.xz
 xdebug-3.1.6.tgz                554eca0b4d5b7b93cb2258fab0b0bd84cc8721e74322a2255c14e137cbcad5d2  https://xdebug.org/files/xdebug-3.1.6.tgz

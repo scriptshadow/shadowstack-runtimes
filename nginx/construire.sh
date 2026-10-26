@@ -58,7 +58,7 @@ verifier_liens "$PAQUET"
 
 # tester_nginx <dossier> : sert un dossier depuis le paquet déplacé, l'interroge, l'arrête
 tester_nginx() {
-  local base="$1" d port=18590 pid
+  local base="$1" d port=18590 pid entetes page
   d=$(mktemp -d "${TMPDIR:-/tmp}/ssrt-nginx.XXXXXX")
   mkdir -p "$d/www" "$d/logs"
   printf 'Bonjour, KONÉ Awa\n' > "$d/www/index.html"
@@ -86,18 +86,27 @@ http {
 }
 CONF
   "$base/sbin/nginx" -p "$d" -c "$d/nginx.conf" -e "$d/logs/demarrage.log" -t
+  # Port déjà servi (serveur d'un essai interrompu) : le test interrogerait le mauvais serveur
+  if curl -s -o /dev/null "http://127.0.0.1:$port/"; then
+    echec "Port $port déjà utilisé : arrête le serveur qui l'occupe, puis relance"
+  fi
   "$base/sbin/nginx" -p "$d" -c "$d/nginx.conf" -e "$d/logs/demarrage.log" &
   pid=$!
+  # Serveur arrêté même si une vérification échoue (echec quitte le script)
+  trap 'kill -QUIT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null' EXIT
   for _ in $(seq 1 30); do
     curl -fs "http://127.0.0.1:$port/" >/dev/null 2>&1 && break
     sleep 0.5
   done
-  curl -fs "http://127.0.0.1:$port/" | grep -q "KONÉ Awa" || { cat "$d/logs/erreurs.log" >&2; echec "Fichier statique non servi"; }
+  page=$(curl -fs "http://127.0.0.1:$port/") || { cat "$d/logs/erreurs.log" >&2; echec "Fichier statique non servi"; }
+  grep -q "KONÉ Awa" <<<"$page" || echec "Fichier statique incomplet"
   [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/interdit")" = 403 ] || echec "403 attendu"
   [ "$(curl -s "http://127.0.0.1:$port/capture/abc")" = "capture abc" ] || echec "Réécriture PCRE2 en échec"
-  curl -s -H 'Accept-Encoding: gzip' -D - -o /dev/null "http://127.0.0.1:$port/" | grep -qi '^content-encoding: gzip' ||
-    echec "Compression gzip absente"
+  # En-têtes lus d'abord : avec pipefail, « curl | grep -q » échoue quand grep s'arrête avant curl
+  entetes=$(curl -s -H 'Accept-Encoding: gzip' -D - -o /dev/null "http://127.0.0.1:$port/")
+  grep -qi '^content-encoding: gzip' <<<"$entetes" || echec "Compression gzip absente"
   echo "Fichier statique, 403, expression régulière et gzip : ok"
+  trap - EXIT
   kill -QUIT "$pid"
   wait "$pid" || echec "Nginx s'est arrêté en erreur (code $?)"
   rm -rf "$d"
