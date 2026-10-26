@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Compile Apache httpd pour macOS arm64 : APR, APR-util et PCRE2 en statique, modules compilés dans
-# le binaire (aucune bibliothèque à reloger), expat et zlib du système. Apache sert de moteur à
-# ShadowStack derrière Caddy : il lit les .htaccess et parle aux pools PHP (proxy_fcgi) ; pas de
-# TLS (Caddy le termine). Teste le paquet déplacé (fichier statique, .htaccess avec réécriture,
-# en-tête et Require, compression), l'empaquette. Étapes en cache (dépendances, compilation).
+# Compile Apache httpd pour macOS arm64 : OpenSSL 3.5, APR, APR-util et PCRE2 en statique, modules
+# compilés dans le binaire (aucune bibliothèque à reloger), expat et zlib du système. Apache sert de
+# moteur à ShadowStack derrière Caddy : il lit les .htaccess et parle aux pools PHP (proxy_fcgi).
+# mod_ssl sert entre Caddy et Apache : sans lui, une règle `RewriteCond %{HTTPS} !on` de production
+# redirigerait en boucle. Teste le paquet déplacé (fichier statique, .htaccess avec réécriture,
+# en-tête et Require, compression, HTTPS), l'empaquette. Étapes en cache (dépendances, compilation).
 #
 #   ./apache/construire.sh
 
@@ -35,8 +36,9 @@ options_httpd=(
   --enable-headers=static
   --enable-expires=static
   --enable-deflate=static
+  --enable-ssl=static
+  --enable-socache-shmcb=static
   # Inutiles derrière Caddy, ou demandant des bibliothèques absentes du système
-  --disable-ssl
   --disable-lua
   --disable-proxy-html
   --disable-xml2enc
@@ -46,8 +48,12 @@ options_httpd=(
 )
 
 construire_dependances() {
-  local p a u
+  local o p a u
   rm -rf "${DEPS:?}" "${SRC:?}"
+  o=$(extraire openssl-3.5.9.tar.gz "$SRC")
+  # openssldir = magasin du système : les certificats racine de macOS servent par défaut
+  (cd "$o" && ./Configure darwin64-arm64-cc no-shared no-tests no-docs --prefix="$DEPS" --libdir=lib \
+    --openssldir=/private/etc/ssl && make -j"$COEURS" && make install_sw)
   p=$(extraire pcre2-10.49.tar.gz "$SRC")
   (cd "$p" && ./configure --prefix="$DEPS" --disable-shared --enable-static --enable-jit && make -j"$COEURS" && make install)
   a=$(extraire apr-1.7.6.tar.gz "$SRC")
@@ -64,15 +70,15 @@ compiler_httpd() {
   rm -rf "$INSTALLATION"
   h=$(extraire "httpd-$VERSION_HTTPD.tar.gz" "$SRC")
   (cd "$h" && ./configure --prefix="$INSTALLATION" --with-apr="$DEPS" --with-apr-util="$DEPS" \
-    --with-pcre="$DEPS/bin/pcre2-config" --with-z="$SDK/usr" "${options_httpd[@]}" &&
+    --with-pcre="$DEPS/bin/pcre2-config" --with-z="$SDK/usr" --with-ssl="$DEPS" "${options_httpd[@]}" &&
     make -j"$COEURS" && make install)
 }
 
-cle_dependances=$(empreinte "$(source_de pcre2-10.49.tar.gz)" "$(source_de apr-1.7.6.tar.gz)" \
+cle_dependances=$(empreinte "$(source_de openssl-3.5.9.tar.gz)" "$(source_de pcre2-10.49.tar.gz)" "$(source_de apr-1.7.6.tar.gz)" \
   "$(source_de apr-util-1.6.5.tar.gz)" "$(declare -f construire_dependances)" "$MACOSX_DEPLOYMENT_TARGET")
 cle_compilation=$(empreinte "$cle_dependances" "$(source_de "httpd-$VERSION_HTTPD.tar.gz")" \
   "$(declare -f compiler_httpd)" "${options_httpd[*]}")
-etape_en_cache "$DEPS/.etape-dependances" "$cle_dependances" "PCRE2, APR et APR-util (statiques)" construire_dependances
+etape_en_cache "$DEPS/.etape-dependances" "$cle_dependances" "OpenSSL 3.5, PCRE2, APR et APR-util (statiques)" construire_dependances
 etape_en_cache "$INSTALLATION/.etape-compilation" "$cle_compilation" "Apache httpd $VERSION_HTTPD : compilation" compiler_httpd
 
 etape "Paquet : copie nettoyée de l'installation"
@@ -92,11 +98,11 @@ verifier_liens "$PAQUET"
 
 # tester_httpd <dossier> : sert un dossier avec un .htaccess depuis le paquet déplacé, l'arrête
 tester_httpd() {
-  local base="$1" d port=18591 pid module modules entetes page
+  local base="$1" d port=18591 port_tls=18594 pid module modules entetes page
   # MPM event : « event.c » dans la liste de httpd -l ; liste lue d'abord (pipefail, voir plus bas)
   modules=$("$base/bin/httpd" -l)
   for module in mod_rewrite mod_remoteip mod_proxy_fcgi mod_proxy_balancer mod_lbmethod_byrequests \
-    mod_headers mod_deflate mod_expires mod_setenvif mod_access_compat event; do
+    mod_headers mod_deflate mod_expires mod_setenvif mod_access_compat mod_ssl mod_socache_shmcb event; do
     grep -q "$module.c" <<<"$modules" || echec "Module absent du binaire : $module"
   done
   echo "Modules compilés dans le binaire : ok"
@@ -107,6 +113,9 @@ tester_httpd() {
   printf 'secret\n' > "$d/www/prive/secret.txt"
   printf 'RewriteEngine On\nRewriteRule ^reecrit$ index.html [L]\nHeader set X-Essai "oui"\n' > "$d/www/.htaccess"
   printf 'Require all denied\n' > "$d/www/prive/.htaccess"
+  # Certificat autosigné, comme celui que ShadowStack crée pour la liaison entre Caddy et Apache
+  /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -keyout "$d/cle.pem" -out "$d/certificat.pem" \
+    -days 1 -subj "/CN=shadowstack-apache" -addext "subjectAltName=DNS:shadowstack-apache" 2>/dev/null
   cat > "$d/httpd.conf" <<CONF
 ServerRoot "$base"
 Listen 127.0.0.1:$port
@@ -123,6 +132,16 @@ DocumentRoot "$d/www"
     Require all granted
 </Directory>
 AddOutputFilterByType DEFLATE text/html text/plain
+SSLSessionCache "shmcb:$d/run/ssl_scache(512000)"
+Listen 127.0.0.1:$port_tls https
+<VirtualHost 127.0.0.1:$port_tls>
+    SSLEngine on
+    SSLCertificateFile "$d/certificat.pem"
+    SSLCertificateKeyFile "$d/cle.pem"
+    RewriteEngine On
+    RewriteCond %{HTTPS} !on
+    RewriteRule ^ - [F]
+</VirtualHost>
 CONF
   "$base/bin/httpd" -d "$base" -f "$d/httpd.conf" -t
   # Port déjà servi (serveur d'un essai interrompu) : le test interrogerait le mauvais serveur
@@ -148,7 +167,10 @@ CONF
     echec "Require all denied sans effet"
   entetes=$(curl -s -H 'Accept-Encoding: gzip' -D - -o /dev/null "http://127.0.0.1:$port/")
   grep -qi '^content-encoding: gzip' <<<"$entetes" || echec "Compression absente"
-  echo "Fichier statique, .htaccess (réécriture, en-tête, Require) et compression : ok"
+  # HTTPS vu par mod_rewrite : la règle de production qui refuse le HTTP laisse passer
+  page=$(curl -fsk "https://127.0.0.1:$port_tls/") || echec "HTTPS (mod_ssl) en échec"
+  grep -q "KONÉ Awa" <<<"$page" || echec "HTTPS (mod_ssl) : mauvaise page"
+  echo "Fichier statique, .htaccess (réécriture, en-tête, Require), compression et HTTPS : ok"
   trap - EXIT
   kill -TERM "$pid"
   wait "$pid" || echec "Apache s'est arrêté en erreur (code $?)"
