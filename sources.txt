@@ -42,3 +42,6 @@ libjpeg-turbo-3.0.3.tar.gz      343e789069fc7afbcdfe44dbba7dbbf45afa98a15150e079
 freetype-2.13.2.tar.xz          12991c4e55c506dd7f9b765933e62fd2be2e06d421505d7950a132e4f1bb484d  https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.xz
 libzip-1.10.1.tar.xz            dc3c8d5b4c8bbd09626864f6bcf93de701540f761d76b85d7c7d710f4bd90318  https://github.com/nih-at/libzip/releases/download/v1.10.1/libzip-1.10.1.tar.xz
 curl-8.10.1.tar.xz              73a4b0e99596a09fa5924a4fb7e4b995a85fda0d18a2c02ab9cf134bebce04ee  https://curl.se/download/curl-8.10.1.tar.xz
+
+# Redis (empreinte recoupée le 26/10/2026 avec celle publiée par Redis, github.com/redis/redis-hashes)
+redis-8.10.2.tar.gz             b9ffee226b5eecdba98a679260dad764b2a4ebd90dce4ad5ac9e9f3eef9c02b3  https://download.redis.io/releases/redis-8.10.2.tar.gz
