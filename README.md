@@ -12,7 +12,7 @@ La compilation se fait **en local**, sur un Mac Apple Silicon : ce dépôt n'uti
 | `php-8.3.36-macos-arm64.tar.gz` | PHP 8.3.36, mêmes binaires et extensions, Xdebug 3.5.3, OPcache ; OpenSSL 3.5 |
 | `mariadb-10.6.28-macos-arm64.tar.gz` | MariaDB 10.6.28 : serveur, clients, `mariadb-dump`, `mariadb-install-db` |
 | `nginx-1.30.6-macos-arm64.tar.gz` | Nginx 1.30.6 (stable), moteur web derrière Caddy : PCRE2 10.49 avec JIT et zlib compilés dans le binaire, modules realip et threads ; sans TLS (Caddy le termine) |
-| `httpd-2.4.69-macos-arm64.tar.gz` | Apache httpd 2.4.69 (MPM event), moteur web derrière Caddy qui lit les `.htaccess` : APR 1.7.6, APR-util 1.6.5 et PCRE2 10.49 en statique, modules compilés dans le binaire (rewrite, proxy_fcgi, balancer, remoteip, headers, deflate…) ; sans TLS |
+| `httpd-2.4.69-macos-arm64.tar.gz` | Apache httpd 2.4.69 (MPM event), moteur web derrière Caddy qui lit les `.htaccess` : OpenSSL 3.5, APR 1.7.6, APR-util 1.6.5 et PCRE2 10.49 en statique, modules compilés dans le binaire (rewrite, proxy_fcgi, balancer, remoteip, headers, deflate, ssl…) ; mod_ssl sert à la liaison entre Caddy et Apache |
 | `mysql-8.4.13-macos15-arm64.tar.gz`, `mysql-8.4.13-winx64.zip` | MySQL 8.4.13 LTS, archives officielles d'Oracle inchangées (même SHA-256 ; MD5 publié par Oracle recoupé). L'archive macOS exige macOS 15 |
 
 Chaque paquet compilé :
